@@ -37,6 +37,13 @@ function traceFields(trace?: TraceCtx) {
   return { traceId: trace?.traceId, parentSpanId: trace?.parentSpanId };
 }
 
+async function replaySnapshots(userId: number) {
+  // @fireweave-controlpoint match-replay
+  return fw.controlPoints.getBooleanValue("match-replay", false, {
+    targetingKey: String(userId),
+  });
+}
+
 const PIN_LIMIT = 6;
 
 export function createGameUseCases(deps: {
@@ -67,10 +74,7 @@ export function createGameUseCases(deps: {
     },
 
     async getOrCreateMatch(user: PublicUser, gameId: string, trace?: TraceCtx) {
-      // @fireweave-controlpoint match-replay
-      const snap = await fw.controlPoints.getBooleanValue("match-replay", false, {
-        targetingKey: String(user.id),
-      });
+      const snap = await replaySnapshots(user.id);
       const engine = (() => {
         try {
           return deps.engines.require(gameId);
@@ -130,10 +134,7 @@ export function createGameUseCases(deps: {
       move: unknown,
       trace?: TraceCtx,
     ): Promise<MatchDto> {
-      // @fireweave-controlpoint match-replay
-      const snap = await fw.controlPoints.getBooleanValue("match-replay", false, {
-        targetingKey: String(user.id),
-      });
+      const snap = await replaySnapshots(user.id);
       const engine = (() => {
         try {
           return deps.engines.require(gameId);
