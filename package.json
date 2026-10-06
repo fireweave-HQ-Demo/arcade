@@ -7,8 +7,10 @@
     "build": "bun run --filter '@arcade/web' build",
     "start": "./scripts/dev.sh",
     "stop": "./scripts/dev-stop.sh",
-    "start:docker": "docker compose -f docker/compose.yml --profile docker up -d --build",
-    "stop:docker": "docker compose -f docker/compose.yml --profile docker down",
+    "start:docker": "./scripts/docker-dev.sh",
+    "stop:docker": "./scripts/docker-dev-stop.sh",
+    "start:docker:baked": "docker compose -f docker/compose.yml --profile docker up -d --build",
+    "stop:docker:baked": "docker compose -f docker/compose.yml --profile docker down",
     "start:prod": "./scripts/prod-start.sh",
     "stop:prod": "./scripts/prod-stop.sh"
   }

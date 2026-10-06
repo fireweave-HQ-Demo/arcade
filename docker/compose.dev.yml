@@ -1,4 +1,6 @@
-# Hot-reload stack: bun --watch API + Vite, source mounted from host
+# Hot-reload stack: repo bind-mounted; API uses polling restart (Docker Desktop / macOS).
+# Nested node_modules are anonymous volumes so host Bun links don't break Linux installs.
+# Vite uses CHOKIDAR polling for HMR. Start: bun start:docker
 name: arcade-dev
 
 services:
@@ -21,15 +23,23 @@ services:
   api:
     image: oven/bun:1.2-alpine
     working_dir: /app
-    command: sh -c "bun install --frozen-lockfile && bun --watch apps/api/src/main.ts"
+    command: sh -c "bun install --frozen-lockfile && bun scripts/docker-api-watch.ts"
     volumes:
       - ..:/app
       - arcade_api_nm:/app/node_modules
+      # hide host workspace links (point at Darwin/.bun paths)
+      - arcade_api_pkg_nm:/app/apps/api/node_modules
+      - arcade_api_web_nm:/app/apps/web/node_modules
+      - arcade_api_shared_nm:/app/packages/shared/node_modules
+      - arcade_api_core_nm:/app/packages/game-core/node_modules
+      - arcade_api_engines_nm:/app/packages/engines/node_modules
     ports:
       - "3000:3000"
     environment:
       HOST: "0.0.0.0"
       PORT: "3000"
+      WEB_DEV_ORIGIN: http://localhost:5173
+      DOCKER_WATCH_INTERVAL_MS: "400"
       DATABASE_URL: postgres://${POSTGRES_USER:-tictac}:${POSTGRES_PASSWORD:-tictac}@db:5432/${POSTGRES_DB:-tictac}
       SESSION_SECRET: ${SESSION_SECRET:-arcade-dev-secret}
       OPENOBSERVE_URL: ${OPENOBSERVE_URL:-}
@@ -48,10 +58,16 @@ services:
     volumes:
       - ..:/app
       - arcade_web_nm:/app/node_modules
+      - arcade_web_api_nm:/app/apps/api/node_modules
+      - arcade_web_pkg_nm:/app/apps/web/node_modules
+      - arcade_web_shared_nm:/app/packages/shared/node_modules
+      - arcade_web_core_nm:/app/packages/game-core/node_modules
+      - arcade_web_engines_nm:/app/packages/engines/node_modules
     ports:
       - "5173:5173"
     environment:
       CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
       API_PROXY: http://api:3000
     depends_on:
       - api
@@ -59,4 +75,14 @@ services:
 volumes:
   pgdata_dev:
   arcade_api_nm:
+  arcade_api_pkg_nm:
+  arcade_api_web_nm:
+  arcade_api_shared_nm:
+  arcade_api_core_nm:
+  arcade_api_engines_nm:
   arcade_web_nm:
+  arcade_web_api_nm:
+  arcade_web_pkg_nm:
+  arcade_web_shared_nm:
+  arcade_web_core_nm:
+  arcade_web_engines_nm:

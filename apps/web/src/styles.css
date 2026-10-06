@@ -7,6 +7,7 @@
   --danger: #c44b3c;
   --line: rgba(20, 32, 27, 0.12);
   --shadow: 0 24px 60px rgba(20, 32, 27, 0.12);
+  --display: Syne, "Space Grotesk", sans-serif;
   font-family: "Space Grotesk", sans-serif;
   color: var(--ink);
   background: var(--paper);
@@ -51,8 +52,7 @@ body {
 .game-mark { width: 42px; height: 42px; flex: none; }
 .game-mark-bg { fill: #fff; stroke: var(--line); }
 .game-mark-stroke { fill: none; stroke: var(--teal); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.game-card:hover .game-mark { animation: wobble 0.45s ease; }
-.game-card:hover .game-mark-bg { fill: var(--mint); }
+.tile:hover .game-mark { animation: wobble 0.45s ease; }
 
 @keyframes wobble {
   0% { transform: rotate(0); }
@@ -69,6 +69,27 @@ button, input { font: inherit; }
   padding: 0.85rem 0 2rem;
   animation: rise 0.55s ease both;
 }
+.app-lobby {
+  width: min(1240px, calc(100% - 1.25rem));
+  padding-bottom: 3rem;
+}
+.app-lobby .mast { margin-bottom: 0.15rem; }
+.app-lobby .chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0 0.15rem;
+}
+.app-lobby .chrome .topbar {
+  margin: 0;
+  flex: 1;
+  justify-content: flex-end;
+  order: 2;
+}
+.app-lobby .chrome .nav { margin: 0; order: 1; }
 .app-play {
   height: 100dvh;
   overflow: hidden;
@@ -178,36 +199,297 @@ a.btn {
 .status.win { color: var(--teal); }
 .status.lose { color: var(--danger); }
 
-.grid-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.game-card {
-  text-align: left;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto auto;
-  column-gap: 0.75rem;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.86);
-  padding: 0.9rem;
-  cursor: pointer;
-  animation: rise 0.45s ease both;
-  transition: transform 0.16s ease, background 0.15s ease, box-shadow 0.16s ease;
-}
-.game-card .game-mark { grid-row: 1 / span 3; align-self: center; }
-.game-card:hover { transform: translateY(-2px); background: var(--sand); }
-.game-card h3 { margin: 0 0 0.4rem; font-size: 1.2rem; }
-.game-card p { margin: 0; opacity: 0.72; font-size: 0.92rem; }
 .badge {
   display: inline-block;
   margin-top: 0.75rem;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.75rem;
   opacity: 0.7;
+}
+
+/* —— CrazyGames-style lobby discovery —— */
+.lobby {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 1.75rem;
+}
+
+.lobby-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  gap: 1rem;
+  align-items: stretch;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(20, 32, 27, 0.94) 0%, rgba(31, 111, 91, 0.88) 55%, rgba(125, 255, 162, 0.35) 100%),
+    radial-gradient(circle at 85% 20%, rgba(243, 231, 201, 0.35), transparent 40%);
+  color: #f4fff8;
+  overflow: hidden;
+  position: relative;
+}
+.lobby-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -40% 40%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(125, 255, 162, 0.35), transparent 60%);
+  pointer-events: none;
+}
+.lobby-hero-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.25rem;
+}
+.lobby-kicker {
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  color: var(--mint);
+}
+.lobby-hero-copy h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.2rem, 5vw, 3.25rem);
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+}
+.lobby-lead {
+  margin: 0;
+  max-width: 26rem;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  opacity: 0.82;
+}
+.lobby-cta {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  text-decoration: none;
+}
+.lobby-featured {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  height: clamp(200px, 28vw, 250px);
+  min-height: 200px;
+  overflow: hidden;
+}
+.lobby-featured .tile-hero {
+  grid-row: 1 / span 2;
+  min-height: 0;
+}
+
+.lobby-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  padding: 0.55rem 0;
+  background: linear-gradient(180deg, rgba(238, 246, 240, 0.96) 60%, rgba(238, 246, 240, 0));
+}
+.cat-chip {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+.cat-chip:hover { transform: translateY(-1px); border-color: rgba(31, 111, 91, 0.35); }
+.cat-chip.active {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.lobby-rail { display: grid; gap: 0.75rem; }
+.rail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.rail-head h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+.rail-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  opacity: 0.55;
+}
+.rail-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(148px, 180px);
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.rail-track::-webkit-scrollbar { height: 6px; }
+.rail-track::-webkit-scrollbar-thumb {
+  background: rgba(20, 32, 27, 0.22);
+  border-radius: 999px;
+}
+
+.lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.85rem;
+}
+
+.tile {
+  --tile-from: #1f6f5b;
+  --tile-to: #7dffa2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  color: inherit;
+  text-decoration: none;
+  scroll-snap-align: start;
+  animation: rise 0.45s ease both;
+  min-width: 0;
+}
+.tile-art {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(145deg, var(--tile-from), var(--tile-to));
+  box-shadow: 0 10px 28px rgba(20, 32, 27, 0.14);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.tile-lg .tile-art,
+.tile-hero .tile-art {
+  aspect-ratio: auto;
+  height: 100%;
+  min-height: 0;
+  border-radius: 16px;
+}
+.game-cover-art {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transition: transform 0.28s ease;
+}
+.tile-play {
+  position: absolute;
+  inset: auto 0.65rem 0.65rem auto;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.78rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+.tile:hover .tile-art {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 36px rgba(20, 32, 27, 0.2);
+}
+.tile:hover .game-cover-art { transform: scale(1.06); }
+.tile:hover .tile-play {
+  opacity: 1;
+  transform: none;
+}
+.tile-meta h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tile-meta p {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  opacity: 0.72;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tile-hero .tile-meta h3,
+.tile-lg .tile-meta h3 {
+  font-size: 1.05rem;
+  color: #f4fff8;
+}
+.tile-hero .tile-meta p,
+.tile-lg .tile-meta p {
+  color: rgba(244, 255, 248, 0.78);
+}
+.lobby-featured .tile-meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2.4rem 0.85rem 0.75rem;
+  background: linear-gradient(180deg, transparent, rgba(8, 16, 12, 0.78));
+  border-radius: 0 0 16px 16px;
+  pointer-events: none;
+}
+.lobby-featured .tile {
+  position: relative;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.lobby-featured .tile:hover .tile-art {
+  transform: scale(1.03);
+}
+.lobby-featured .tile-art {
+  height: 100%;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .lobby-hero {
+    grid-template-columns: 1fr;
+  }
+  .lobby-featured {
+    min-height: 220px;
+    grid-template-columns: 1.2fr 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .lobby-featured {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+  .lobby-featured .tile-hero { grid-row: auto; min-height: 200px; }
+  .lobby-featured .tile-lg { min-height: 140px; }
+  .rail-track { grid-auto-columns: minmax(132px, 46vw); }
+  .lobby-grid { grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); gap: 0.65rem; }
+  .app-lobby .chrome { flex-direction: column; align-items: stretch; }
 }
 
 .stats {

@@ -19,7 +19,7 @@ services:
       retries: 15
     restart: unless-stopped
 
-  # Optional: baked container (no live reload). Use: docker compose --profile docker up -d --build
+  # Optional: baked container (no live reload). Use: bun start:docker:baked
   app:
     profiles: ["docker"]
     build:

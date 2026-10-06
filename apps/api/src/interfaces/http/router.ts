@@ -184,7 +184,13 @@ export function createHandler(services: AppServices) {
         });
       }
 
-      // static SPA
+      // Dev: never serve stale apps/web/dist — send browsers to Vite HMR.
+      const webDev = process.env.WEB_DEV_ORIGIN?.replace(/\/$/, "");
+      if (webDev) {
+        return Response.redirect(`${webDev}${path}${url.search}`, 302);
+      }
+
+      // static SPA (baked dist — prod / start:docker:baked)
       let filePath = path === "/" ? "/index.html" : path;
       let file = Bun.file(join(STATIC, filePath));
       if (!(await file.exists())) file = Bun.file(join(STATIC, "index.html"));

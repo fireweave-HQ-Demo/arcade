@@ -25,6 +25,7 @@ fi
 export PORT="${PORT:-3000}"
 export HOST="${HOST:-127.0.0.1}"
 export API_PROXY="${API_PROXY:-http://127.0.0.1:3000}"
+export WEB_DEV_ORIGIN="${WEB_DEV_ORIGIN:-http://127.0.0.1:5173}"
 
 echo "waiting for postgres…"
 for _ in $(seq 1 40); do
@@ -40,8 +41,8 @@ pkill -f "vite --host" 2>/dev/null || true
 sleep 0.3
 
 echo "arcade (hot reload)"
-echo "  API  → http://127.0.0.1:${PORT}   (bun --watch)"
-echo "  Web  → http://127.0.0.1:5173      (vite HMR → ${API_PROXY})"
+echo "  UI   → http://127.0.0.1:5173      (Vite HMR — use this)"
+echo "  API  → http://127.0.0.1:${PORT}   (/api; / redirects to Vite)"
 echo "  stop → Ctrl+C  or  bun stop"
 
 API_PID=""

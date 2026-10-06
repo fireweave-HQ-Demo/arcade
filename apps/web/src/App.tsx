@@ -13,6 +13,7 @@ import {
 import { api, type GameInfo, type Match, type Scoreboard } from "./api";
 import { AdminPage } from "./Admin";
 import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from "./auth";
+import { LobbyPage } from "./Lobby";
 import { GameBoard } from "./games/GameBoard";
 import { ArcadeMark, GameMark } from "./games/logos";
 import { OutcomeFX } from "./games/outcome";
@@ -304,44 +305,6 @@ function PlayPage() {
   );
 }
 
-function LobbyPage() {
-  const [games, setGames] = useState<GameInfo[]>([]);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    void api
-      .games()
-      .then((r) => setGames(r.games))
-      .catch((e: Error) => setError(e.message));
-  }, []);
-
-  if (error) {
-    return (
-      <section className="panel">
-        <p className="error">{error}</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel">
-      <div className="status">choose a game</div>
-      <p className="hint">same account · same bot · scores roll up to one board</p>
-      <div className="grid-cards">
-        {games.map((g, i) => (
-          <Link key={g.id} className="game-card" to={`/play/${g.id}`} style={{ animationDelay: `${i * 40}ms` }}>
-            <GameMark id={g.id} />
-            <h3>{g.name}</h3>
-            <p>{g.description}</p>
-            <span className="badge">vs arcade bot</span>
-          </Link>
-        ))}
-        {!games.length ? <p className="hint">loading games…</p> : null}
-      </div>
-    </section>
-  );
-}
-
 function ScoreboardPage() {
   const [data, setData] = useState<Scoreboard | null>(null);
   const [error, setError] = useState("");
@@ -441,51 +404,54 @@ function Shell() {
   const location = useLocation();
   const isAdmin = user?.role === "admin";
   const onAdmin = location.pathname.startsWith("/admin");
+  const onLobby = location.pathname === "/";
   const gamesActive =
     location.pathname === "/" || location.pathname.startsWith("/play/");
 
   return (
     <>
-      <div className="topbar">
-        <p className="hint">
+      <div className={`chrome ${onLobby ? "chrome-lobby" : ""}`}>
+        <div className="topbar">
+          <p className="hint">
+            {isAdmin ? (
+              <>
+                admin · <strong>{user?.username}</strong>
+                {onAdmin ? " · portal" : ""}
+              </>
+            ) : (
+              <>
+                hi, <strong>{user?.username}</strong>
+              </>
+            )}
+          </p>
+          <button className="btn secondary" onClick={() => void logout()}>
+            log out
+          </button>
+        </div>
+        <nav className="nav">
           {isAdmin ? (
-            <>
-              admin session · <strong>{user?.username}</strong>
-              {onAdmin ? " · portal" : " · player view"}
-            </>
-          ) : (
-            <>
-              signed in as <strong>{user?.username}</strong>
-            </>
-          )}
-        </p>
-        <button className="btn secondary" onClick={() => void logout()}>
-          log out
-        </button>
-      </div>
-      <nav className="nav">
-        {isAdmin ? (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
+            >
+              admin
+            </NavLink>
+          ) : null}
           <NavLink
-            to="/admin"
+            to="/"
+            end
+            className={() => `btn secondary ${gamesActive ? "active" : ""}`}
+          >
+            games
+          </NavLink>
+          <NavLink
+            to="/scoreboard"
             className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
           >
-            admin portal
+            scoreboard
           </NavLink>
-        ) : null}
-        <NavLink
-          to="/"
-          end
-          className={() => `btn secondary ${gamesActive ? "active" : ""}`}
-        >
-          games
-        </NavLink>
-        <NavLink
-          to="/scoreboard"
-          className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
-        >
-          scoreboard
-        </NavLink>
-      </nav>
+        </nav>
+      </div>
       <Outlet />
     </>
   );
@@ -524,9 +490,19 @@ function AppChrome() {
   const location = useLocation();
   const adminPortal = user?.role === "admin" && location.pathname.startsWith("/admin");
   const playing = location.pathname.startsWith("/play/");
+  const lobby = location.pathname === "/";
 
   return (
-    <main className={`app ${adminPortal ? "app-admin" : ""} ${playing ? "app-play" : ""}`}>
+    <main
+      className={[
+        "app",
+        adminPortal ? "app-admin" : "",
+        playing ? "app-play" : "",
+        lobby ? "app-lobby" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <header className="mast">
         <Link to={user?.role === "admin" ? "/admin" : "/"} className="logo">
           <ArcadeMark />
@@ -535,7 +511,7 @@ function AppChrome() {
             {adminPortal ? <em> admin</em> : null}
           </span>
         </Link>
-        {playing ? null : (
+        {playing || lobby ? null : (
           <p className="tagline">
             {adminPortal
               ? "insights, top players, and metric injection"
