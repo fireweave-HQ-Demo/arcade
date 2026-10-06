@@ -16,8 +16,24 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Bun** server (API + static SPA)
 - **React** client
 - **Postgres 16** (users, sessions, games)
-- **OpenObserve** metrics (`login`, `register`, `game_start`, `game_end`)
+- **OpenObserve** logs + metrics + traces on every API request
 - Perfect-play bot via **minimax** (O always optimal)
+
+## Observability (OpenObserve)
+
+| Signal | Stream / name | How |
+|--------|---------------|-----|
+| Logs | `temp_battle_logs` | JSON ingest `/{stream}/_json` |
+| Metrics | `temp_battle_http_requests`, `temp_battle_http_duration_ms`, `temp_battle_events` | ` /ingest/metrics/_json` |
+| Traces | `temp_battle_traces` | OTLP/HTTP JSON `/v1/traces` |
+
+Verify inject → fetch round-trip:
+
+```bash
+curl -s http://localhost:3000/api/observability/verify | jq
+```
+
+`ok: true` means a unique probe was written and then read back for logs + metrics, and traces ingest + stream presence succeeded (search may lag briefly on new streams).
 
 ## Auth
 

@@ -16,7 +16,15 @@ import {
   type Board,
   type Cell,
 } from "./game";
-import { listStreams, track } from "./metrics";
+import {
+  finishRequest,
+  listStreams,
+  log,
+  startRequest,
+  track,
+  verifyInjection,
+  type RequestContext,
+} from "./observability";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const STATIC = join(import.meta.dir, "../../client/dist");
@@ -35,6 +43,11 @@ function toBoard(raw: unknown): Board {
   });
 }
 
+function apiRoute(path: string) {
+  if (path.startsWith("/api/")) return path;
+  return "static";
+}
+
 async function waitForDb(retries = 30) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -49,6 +62,7 @@ async function waitForDb(retries = 30) {
 
 await waitForDb();
 await migrate();
+await log("info", "server.start", { port: PORT });
 console.log("db ready");
 
 const server = Bun.serve({
@@ -56,24 +70,54 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
+    const route = apiRoute(path);
+    const ctx: RequestContext | null = path.startsWith("/api/")
+      ? startRequest(req, route)
+      : null;
+
+    const respond = async (res: Response, extra?: Record<string, string | number | boolean>) => {
+      if (ctx) {
+        const headers = new Headers(res.headers);
+        headers.set("x-trace-id", ctx.traceId);
+        void finishRequest(ctx, res.status, extra);
+        return new Response(res.body, { status: res.status, headers });
+      }
+      return res;
+    };
 
     try {
       if (path === "/api/health") {
-        return json({ ok: true, service: "temp-battle" });
+        return respond(json({ ok: true, service: "temp-battle" }));
       }
 
+      if (path === "/api/observability/verify" && req.method === "GET") {
+        const report = await verifyInjection();
+        return respond(json(report), { verify_ok: report.ok });
+      }
+
+      if (path === "/api/observability/streams" && req.method === "GET") {
+        const type = url.searchParams.get("type") as "logs" | "metrics" | "traces" | null;
+        const result = await listStreams(type ?? undefined);
+        return respond(json(result.data ?? result));
+      }
+
+      // backwards-compatible alias
       if (path === "/api/metrics/streams" && req.method === "GET") {
-        return json(await listStreams());
+        const result = await listStreams();
+        return respond(json(result.data ?? result));
       }
 
       if (path === "/api/auth/register" && req.method === "POST") {
         const body = (await req.json()) as { username?: string; password?: string };
-        const user = await register(body.username ?? "", body.password ?? "");
+        await register(body.username ?? "", body.password ?? "");
         const session = await login(body.username ?? "", body.password ?? "");
         void track({ event: "register", user: session.user.username });
-        return json(
-          { user: session.user },
-          { headers: { "Set-Cookie": sessionCookie(session.token, session.maxAge) } },
+        return respond(
+          json(
+            { user: session.user },
+            { headers: { "Set-Cookie": sessionCookie(session.token, session.maxAge) } },
+          ),
+          { user: session.user.username },
         );
       }
 
@@ -81,9 +125,12 @@ const server = Bun.serve({
         const body = (await req.json()) as { username?: string; password?: string };
         const session = await login(body.username ?? "", body.password ?? "");
         void track({ event: "login", user: session.user.username });
-        return json(
-          { user: session.user },
-          { headers: { "Set-Cookie": sessionCookie(session.token, session.maxAge) } },
+        return respond(
+          json(
+            { user: session.user },
+            { headers: { "Set-Cookie": sessionCookie(session.token, session.maxAge) } },
+          ),
+          { user: session.user.username },
         );
       }
 
@@ -91,18 +138,20 @@ const server = Bun.serve({
         const user = await getUserFromRequest(req);
         await logout(user?.token);
         if (user) void track({ event: "logout", user: user.username });
-        return json({ ok: true }, { headers: { "Set-Cookie": clearSessionCookie() } });
+        return respond(
+          json({ ok: true }, { headers: { "Set-Cookie": clearSessionCookie() } }),
+        );
       }
 
       if (path === "/api/auth/me" && req.method === "GET") {
         const user = await getUserFromRequest(req);
-        if (!user) return json({ user: null });
-        return json({ user: { id: user.id, username: user.username } });
+        if (!user) return respond(json({ user: null }));
+        return respond(json({ user: { id: user.id, username: user.username } }));
       }
 
       if (path === "/api/game" && req.method === "GET") {
         const user = await getUserFromRequest(req);
-        if (!user) return json({ error: "unauthorized" }, { status: 401 });
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
 
         let [game] = await sql`
           SELECT id, board, status, winner
@@ -122,17 +171,19 @@ const server = Bun.serve({
           void track({ event: "game_start", user: user.username, game_id: game.id });
         }
 
-        return json({
-          id: game.id,
-          board: toBoard(game.board),
-          status: game.status,
-          winner: game.winner,
-        });
+        return respond(
+          json({
+            id: game.id,
+            board: toBoard(game.board),
+            status: game.status,
+            winner: game.winner,
+          }),
+        );
       }
 
       if (path === "/api/game/new" && req.method === "POST") {
         const user = await getUserFromRequest(req);
-        if (!user) return json({ error: "unauthorized" }, { status: 401 });
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
 
         await sql`
           UPDATE games SET status = 'abandoned', updated_at = NOW()
@@ -147,22 +198,24 @@ const server = Bun.serve({
         `;
         void track({ event: "game_start", user: user.username, game_id: game.id });
 
-        return json({
-          id: game.id,
-          board: toBoard(game.board),
-          status: game.status,
-          winner: game.winner,
-        });
+        return respond(
+          json({
+            id: game.id,
+            board: toBoard(game.board),
+            status: game.status,
+            winner: game.winner,
+          }),
+        );
       }
 
       if (path === "/api/game/move" && req.method === "POST") {
         const user = await getUserFromRequest(req);
-        if (!user) return json({ error: "unauthorized" }, { status: 401 });
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
 
         const body = (await req.json()) as { index?: number };
         const index = Number(body.index);
         if (!Number.isInteger(index) || index < 0 || index > 8) {
-          return json({ error: "invalid move" }, { status: 400 });
+          return respond(json({ error: "invalid move" }, { status: 400 }));
         }
 
         const [game] = await sql`
@@ -172,11 +225,11 @@ const server = Bun.serve({
           ORDER BY id DESC
           LIMIT 1
         `;
-        if (!game) return json({ error: "no active game" }, { status: 404 });
+        if (!game) return respond(json({ error: "no active game" }, { status: 404 }));
 
         let board = toBoard(game.board);
         const afterHuman = applyHumanMove(board, index);
-        if (!afterHuman) return json({ error: "illegal move" }, { status: 400 });
+        if (!afterHuman) return respond(json({ error: "illegal move" }, { status: 400 }));
         board = afterHuman;
 
         let winner = getWinner(board);
@@ -205,17 +258,19 @@ const server = Bun.serve({
           });
         }
 
-        return json({
-          id: updated.id,
-          board: toBoard(updated.board),
-          status: updated.status,
-          winner: updated.winner,
-        });
+        return respond(
+          json({
+            id: updated.id,
+            board: toBoard(updated.board),
+            status: updated.status,
+            winner: updated.winner,
+          }),
+        );
       }
 
       if (path === "/api/stats" && req.method === "GET") {
         const user = await getUserFromRequest(req);
-        if (!user) return json({ error: "unauthorized" }, { status: 401 });
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
 
         const [stats] = await sql`
           SELECT
@@ -226,7 +281,7 @@ const server = Bun.serve({
           FROM games
           WHERE user_id = ${user.id}
         `;
-        return json(stats);
+        return respond(json(stats));
       }
 
       // static SPA
@@ -237,7 +292,7 @@ const server = Bun.serve({
       }
       if (await file.exists()) return new Response(file);
 
-      return json({ error: "not found" }, { status: 404 });
+      return respond(json({ error: "not found" }, { status: 404 }));
     } catch (err) {
       const message = err instanceof Error ? err.message : "server error";
       const status =
@@ -246,7 +301,8 @@ const server = Bun.serve({
         message.includes("must")
           ? 400
           : 500;
-      return json({ error: message }, { status });
+      if (ctx) void log("error", "request.error", { message, route: ctx.route }, ctx);
+      return respond(json({ error: message }, { status }));
     }
   },
 });
