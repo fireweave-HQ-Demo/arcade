@@ -1,3 +1,4 @@
+# Local / development — http://localhost:3000
 services:
   db:
     image: postgres:16-alpine
@@ -21,9 +22,10 @@ services:
     ports:
       - "3000:3000"
     environment:
+      NODE_ENV: development
       DATABASE_URL: ${DATABASE_URL:-postgres://tictac:tictac@db:5432/tictac}
       SESSION_SECRET: ${SESSION_SECRET:-temp-battle-dev-secret}
-      PORT: ${PORT:-3000}
+      PORT: "3000"
       OPENOBSERVE_URL: ${OPENOBSERVE_URL}
       OPENOBSERVE_USER: ${OPENOBSERVE_USER}
       OPENOBSERVE_PASSWORD: ${OPENOBSERVE_PASSWORD}

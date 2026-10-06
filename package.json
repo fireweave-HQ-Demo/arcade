@@ -6,6 +6,8 @@
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter client build && bun run --filter server build",
     "start": "./start",
-    "stop": "./stop"
+    "stop": "./stop",
+    "start:prod": "./start.prod",
+    "stop:prod": "./stop.prod"
   }
 }

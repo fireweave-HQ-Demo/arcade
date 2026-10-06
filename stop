@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
-docker compose down
-echo "temp-battle stopped"
+docker compose -f docker-compose.yml down
+echo "temp-battle (dev) stopped"
