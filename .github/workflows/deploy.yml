@@ -32,17 +32,23 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          # connection timeout (seconds) — not the same as command_timeout
           timeout: 20s
           command_timeout: 2m
           envs: POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM
           script: |
             set -euo pipefail
-            APP_DIR="$HOME/temp-battle"
+            APP_DIR="$HOME/arcade"
             if [ ! -d "$APP_DIR/.git" ]; then
-              git clone --depth=1 https://github.com/fireweave-HQ-Demo/temp-battle.git "$APP_DIR"
+              # migrate from legacy temp-battle checkout if present
+              if [ -d "$HOME/temp-battle/.git" ]; then
+                mv "$HOME/temp-battle" "$APP_DIR"
+                git -C "$APP_DIR" remote set-url origin https://github.com/fireweave-HQ-Demo/arcade.git
+              else
+                git clone --depth=1 https://github.com/fireweave-HQ-Demo/arcade.git "$APP_DIR"
+              fi
             fi
             cd "$APP_DIR"
+            git remote set-url origin https://github.com/fireweave-HQ-Demo/arcade.git
             git fetch --depth=1 origin main
             git reset --hard origin/main
             chmod +x scripts/deploy-prod.sh start.prod stop.prod start stop
