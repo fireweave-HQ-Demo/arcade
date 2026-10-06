@@ -7,3 +7,5 @@ client/dist
 server/dist
 .bun
 *.pem
+.deploy-sha
+.deploy-build-id

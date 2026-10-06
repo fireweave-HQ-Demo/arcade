@@ -1,0 +1,58 @@
+# Production — http://<host>:80
+name: temp-battle-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    restart: always
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PORT: "80"
+    image: temp-battle-app:prod
+    ports:
+      - "80:80"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      PORT: "80"
+      OPENOBSERVE_URL: ${OPENOBSERVE_URL}
+      OPENOBSERVE_USER: ${OPENOBSERVE_USER}
+      OPENOBSERVE_PASSWORD: ${OPENOBSERVE_PASSWORD}
+      OPENOBSERVE_LOG_STREAM: ${OPENOBSERVE_LOG_STREAM:-temp_battle_logs}
+      OPENOBSERVE_TRACE_STREAM: ${OPENOBSERVE_TRACE_STREAM:-temp_battle_traces}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:80/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  pgdata_prod:
