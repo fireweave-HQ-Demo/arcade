@@ -54,49 +54,6 @@ export type AdminInsights = {
   totals: { plays: number; plays24h: number; players: number };
 };
 
-export type MetricDef = {
-  name: string;
-  type: "counter" | "gauge" | "histogram";
-  description: string;
-  defaultLabels: Record<string, string>;
-  source: string;
-};
-
-export type ActionDef = {
-  event: string;
-  description: string;
-  metrics: Array<{
-    name: string;
-    type: "counter" | "gauge" | "histogram";
-    defaultLabels: Record<string, string>;
-  }>;
-  source: string;
-};
-
-export type MetricsCatalog = {
-  configured: boolean;
-  maxInject: number;
-  metrics: MetricDef[];
-  actions: ActionDef[];
-};
-
-export type MetricInjectResult = {
-  metric: string;
-  requested: number;
-  ingested: number;
-  ok: boolean;
-  status: number;
-  labels: Record<string, string>;
-};
-
-export type ActionInjectResult = {
-  event: string;
-  requested: number;
-  ingested: number;
-  ok: boolean;
-  status: number;
-};
-
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -173,15 +130,4 @@ export const api = {
     }),
   scoreboard: () => request<Scoreboard>("/api/scoreboard"),
   adminInsights: () => request<AdminInsights>("/api/admin/insights"),
-  adminMetrics: () => request<MetricsCatalog>("/api/admin/metrics"),
-  injectMetric: (name: string, count: number, labels?: Record<string, string>) =>
-    request<MetricInjectResult>("/api/admin/metrics/inject", {
-      method: "POST",
-      body: JSON.stringify({ name, count, labels }),
-    }),
-  injectAction: (event: string, count: number) =>
-    request<ActionInjectResult>("/api/admin/actions/inject", {
-      method: "POST",
-      body: JSON.stringify({ event, count }),
-    }),
 };

@@ -5,7 +5,7 @@
 export type ActionDef = {
   event: string;
   description: string;
-  /** Metrics emitted for a successful action (default labels for admin inject). */
+  /** Metrics emitted for a successful action. */
   metrics: Array<{
     name: string;
     type: "counter" | "gauge" | "histogram";
@@ -214,30 +214,6 @@ export const ACTIONS_CATALOG: ActionDef[] = [
     source: "admin.insights",
   },
   {
-    event: "admin.metric_inject",
-    description: "Admin injected metric samples",
-    metrics: [
-      {
-        name: "arcade_admin_injects_total",
-        type: "counter",
-        defaultLabels: { kind: "metric", target: "arcade_events" },
-      },
-    ],
-    source: "admin.injectMetric",
-  },
-  {
-    event: "admin.action_inject",
-    description: "Admin injected a full action triad",
-    metrics: [
-      {
-        name: "arcade_admin_injects_total",
-        type: "counter",
-        defaultLabels: { kind: "action", target: "match.move" },
-      },
-    ],
-    source: "admin.injectAction",
-  },
-  {
     event: "observability.verify",
     description: "Canary probe for logs/metrics/traces",
     metrics: [
@@ -250,11 +226,3 @@ export const ACTIONS_CATALOG: ActionDef[] = [
     source: "openobserve.verifyInjection",
   },
 ];
-
-export function findAction(event: string): ActionDef | undefined {
-  return ACTIONS_CATALOG.find((a) => a.event === event);
-}
-
-export function actionEvents(): string[] {
-  return ACTIONS_CATALOG.map((a) => a.event);
-}

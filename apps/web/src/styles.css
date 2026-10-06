@@ -727,57 +727,7 @@ table.data th { font-size: 0.8rem; opacity: 0.7; }
 }
 
 .auth-modes { margin-top: 0.25rem; }
-.admin-tabs { margin: 0; }
 .admin-shell { display: grid; gap: 0; }
-
-.mono {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.85em;
-}
-
-.metrics-table td:last-child { white-space: nowrap; }
-.metrics-table th:last-child { text-align: right; }
-.metrics-table td:last-child { text-align: right; }
-
-.inject-dialog {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(11, 18, 32, 0.45);
-  backdrop-filter: blur(4px);
-}
-
-.inject-card {
-  width: min(420px, 100%);
-  padding: 1.35rem;
-  background: #fff;
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow);
-}
-
-.inject-label {
-  display: grid;
-  gap: 0.35rem;
-  margin: 1rem 0 0.75rem;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.inject-label input {
-  border: 1px solid var(--line);
-  background: #fff;
-  padding: 0.75rem 0.85rem;
-  outline: none;
-  font: inherit;
-}
-
-.inject-label input:focus {
-  border-color: var(--cobalt);
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.2);
-}
 
 @media (max-width: 640px) {
   .app { padding-top: 0.65rem; }

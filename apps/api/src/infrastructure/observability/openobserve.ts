@@ -6,7 +6,6 @@
  *   traces  → arcade_traces (OTLP/HTTP JSON)
  */
 
-import { findAction } from "./actions-catalog";
 import { metricNames } from "./metrics-catalog";
 
 const BASE = (process.env.OPENOBSERVE_URL ?? "").replace(/\/$/, "");
@@ -151,49 +150,6 @@ export async function metric(
   ]);
 }
 
-/** Inject `count` samples of a named metric (admin portal). */
-export async function injectMetricSamples(
-  name: string,
-  count: number,
-  labels: Record<string, string> = {},
-  type: "counter" | "gauge" | "histogram" = "counter",
-  value = 1,
-) {
-  const base = nowMs();
-  const records = Array.from({ length: count }, (_, i) => ({
-    __name__: name,
-    __type__: type,
-    service: SERVICE,
-    ...labels,
-    inject: "admin",
-    _timestamp: base + i,
-    value,
-  }));
-
-  // OpenObserve accepts batches; chunk to keep payloads modest
-  const chunkSize = 100;
-  let ok = true;
-  let skipped = false;
-  let status = 0;
-  let lastData: unknown = null;
-  let ingested = 0;
-
-  for (let i = 0; i < records.length; i += chunkSize) {
-    const chunk = records.slice(i, i + chunkSize);
-    const res = await ingestMetricRecords(chunk);
-    skipped = Boolean(res.skipped);
-    status = res.status;
-    lastData = res.data;
-    if (!res.ok && !res.skipped) {
-      ok = false;
-      break;
-    }
-    if (res.ok) ingested += chunk.length;
-  }
-
-  return { ok, skipped, status, data: lastData, ingested, requested: count };
-}
-
 async function ingestMetricRecords(records: Record<string, unknown>[]) {
   try {
     return await postJson(`/ingest/metrics/_json`, records);
@@ -335,39 +291,6 @@ export async function emitAction(input: EmitActionInput) {
   ]);
 
   return { traceId, spanId };
-}
-
-/** Inject N full action triads (admin portal). */
-export async function injectActionSamples(event: string, count: number) {
-  const def = findAction(event);
-  if (!def) {
-    return { ok: false, skipped: false, status: 400, ingested: 0, requested: count, error: "unknown action" };
-  }
-  if (!enabled()) {
-    return { ok: false, skipped: true as const, status: 0, ingested: 0, requested: count };
-  }
-
-  let ingested = 0;
-  let ok = true;
-  let status = 0;
-  for (let i = 0; i < count; i++) {
-    const metrics = def.metrics.map((m) => ({
-      name: m.name,
-      value: m.type === "histogram" || m.type === "gauge" ? (m.name.includes("duration") ? 12 + i : 1) : 1,
-      labels: { ...m.defaultLabels, inject: "admin" },
-      type: m.type,
-    }));
-    const res = await emitAction({
-      event: def.event,
-      metrics,
-      logFields: { inject: "admin", sample: i + 1 },
-      spanAttributes: { inject: "admin", sample: i + 1 },
-    });
-    if (res.traceId) ingested += 1;
-    status = 200;
-  }
-
-  return { ok, skipped: false as const, status, ingested, requested: count, event: def.event };
 }
 
 export type RequestContext = {
