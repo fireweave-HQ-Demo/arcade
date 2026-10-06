@@ -67,4 +67,13 @@ Warm deploys target **&lt; 30s** Actions wall-clock.
 | App dir | `~/temp-battle` |
 | URL | http://54.205.169.117 |
 
-Open security group **TCP 80** (and 22 for deploy). Manual redeploy: Actions → **Deploy to EC2** → Run workflow.
+Security group (inbound):
+
+| Port | Source | Why |
+|------|--------|-----|
+| **22** | `0.0.0.0/0` (or GitHub Actions IP ranges) | Deploy workflow SSH — *not* only your laptop IP |
+| **80** | `0.0.0.0/0` | Public app |
+
+If Actions fails with `dial tcp …:22: i/o timeout`, the instance is unreachable on SSH (stopped, wrong IP, or SG blocking GitHub runners).
+
+Manual redeploy: Actions → **Deploy to EC2** → Run workflow.
