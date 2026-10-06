@@ -1,6 +1,7 @@
 import { AppError, type PublicUser } from "@arcade/shared";
 import type { ObservabilityPort, SessionRepository, TraceCtx, UserRepository } from "../domain/ports";
 import { makePasswordHash, makeToken, verifyPassword } from "../infrastructure/auth/password";
+import { registerFwTarget } from "../fireweave/fw-providers";
 
 const SESSION_DAYS = 30;
 
@@ -138,6 +139,13 @@ export function createAuthUseCases(deps: {
         ],
         spanAttributes: { "user.role": publicUser.role },
       });
+      // Always-on cohort bind (INIT-S8) — never gate behind a control point.
+      const reg = await registerFwTarget(publicUser.id, {
+        properties: { role: publicUser.role, username: publicUser.username },
+      });
+      if (!reg.ok) {
+        console.warn("[fireweave] registerFwTarget failed after login", reg);
+      }
       return { user: publicUser, token, maxAge: SESSION_DAYS * 86400 };
     },
 

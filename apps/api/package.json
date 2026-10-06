@@ -8,9 +8,10 @@
     "start": "bun src/main.ts"
   },
   "dependencies": {
-    "@arcade/shared": "workspace:*",
-    "@arcade/game-core": "workspace:*",
     "@arcade/engines": "workspace:*",
+    "@arcade/game-core": "workspace:*",
+    "@arcade/shared": "workspace:*",
+    "@fireweaveai/server-sdk": "2.3.0",
     "postgres": "^3.4.5"
   }
 }

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": ".cursor/hooks/fireweave-rollout-session.sh" }
+    ],
+    "stop": [
+      { "command": ".cursor/hooks/fireweave-rollout-stop.sh" }
+    ]
+  }
+}

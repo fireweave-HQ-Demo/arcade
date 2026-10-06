@@ -1,0 +1,5 @@
+.cache/
+.queue/
+local.json
+.lock
+instance-id
