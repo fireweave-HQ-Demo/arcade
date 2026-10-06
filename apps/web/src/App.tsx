@@ -23,6 +23,7 @@ import { OutcomeFX } from "./games/outcome";
 type LoginMode = "player" | "admin";
 
 const HeaderArrangementContext = createContext(false);
+const ProfileMenuContext = createContext(false);
 
 function recordHeaderNav(target: string) {
   void record("arcade_web_header_nav_clicks_total", 1, {
@@ -541,8 +542,7 @@ function Shell() {
   const onLobby = location.pathname === "/";
   const gamesActive =
     location.pathname === "/" || location.pathname.startsWith("/play/");
-  // @fireweave-controlpoint profile-avatar-menu
-  const profileMenu = fw.controlPoints.getBooleanValue("profile-avatar-menu", false);
+  const profileMenu = useContext(ProfileMenuContext);
 
   if (unifiedHeader) return <Outlet />;
 
@@ -631,8 +631,7 @@ function AppRoutes() {
 function UnifiedHeader() {
   const { user, logout } = useAuth();
   const location = useLocation();
-  // @fireweave-controlpoint profile-avatar-menu
-  const profileMenu = fw.controlPoints.getBooleanValue("profile-avatar-menu", false);
+  const profileMenu = useContext(ProfileMenuContext);
   const isAdmin = user?.role === "admin";
   const onAdmin = location.pathname.startsWith("/admin");
   const adminPortal = Boolean(isAdmin && onAdmin);
@@ -718,12 +717,15 @@ function AppChrome() {
   const adminPortal = user?.role === "admin" && location.pathname.startsWith("/admin");
   const playing = location.pathname.startsWith("/play/");
   const lobby = location.pathname === "/";
+  // @fireweave-controlpoint profile-avatar-menu
+  const profileMenu = fw.controlPoints.getBooleanValue("profile-avatar-menu", false);
   // @fireweave-controlpoint header-arrangement
   const headerArrangement = fw.controlPoints.getBooleanValue("header-arrangement", false);
   const unified = headerArrangement && Boolean(user);
 
   return (
-    <HeaderArrangementContext.Provider value={unified}>
+    <ProfileMenuContext.Provider value={profileMenu}>
+      <HeaderArrangementContext.Provider value={unified}>
       <main
         className={[
           "app",
@@ -759,7 +761,8 @@ function AppChrome() {
           <AppRoutes />
         </div>
       </main>
-    </HeaderArrangementContext.Provider>
+      </HeaderArrangementContext.Provider>
+    </ProfileMenuContext.Provider>
   );
 }
 
