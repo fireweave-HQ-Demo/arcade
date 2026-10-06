@@ -1,5 +1,8 @@
+import { initFwHarness } from "./fireweave/fw-harness";
 import { getServices } from "./bootstrap";
 import { createHandler } from "./interfaces/http/router";
+
+await initFwHarness();
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Docker/prod need 0.0.0.0 so published ports work; local `bun start` sets HOST=127.0.0.1

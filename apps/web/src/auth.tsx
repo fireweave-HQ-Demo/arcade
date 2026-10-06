@@ -9,6 +9,8 @@ import {
 } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { api, setUnauthorizedHandler, type User } from "./api";
+import { clearFireweaveUser, syncFireweaveUser } from "./fireweave/fw-providers";
+import { emitClientAction } from "./observability/openobserve";
 
 type AuthState = {
   user: User | null;
@@ -21,6 +23,17 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+async function bindFireweaveUser(user: User) {
+  // Always-on cohort bind (INIT-S8) — never gate behind a control point.
+  const reg = await syncFireweaveUser(String(user.id), {
+    role: user.role,
+    username: user.username,
+  });
+  if (!reg.ok) {
+    console.warn("[fireweave] syncFireweaveUser failed", reg);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,14 +41,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const { user: next } = await api.me();
     setUser(next);
+    if (next) await bindFireweaveUser(next);
     return next;
   }, []);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null));
+    setUnauthorizedHandler(() => {
+      setUser(null);
+      void clearFireweaveUser();
+    });
     void api
       .me()
-      .then(({ user: next }) => setUser(next))
+      .then(async ({ user: next }) => {
+        setUser(next);
+        if (next) await bindFireweaveUser(next);
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
     return () => setUnauthorizedHandler(null);
@@ -44,12 +64,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (username: string, password: string) => {
     const { user: next } = await api.login(username, password);
     setUser(next);
+    await bindFireweaveUser(next);
+    void emitClientAction({
+      event: "web.auth.login",
+      user: next.username,
+      metrics: [
+        {
+          name: "arcade_web_events",
+          value: 1,
+          labels: { event: "login", result: "ok", role: next.role },
+        },
+      ],
+    });
     return next;
   }, []);
 
   const register = useCallback(async (username: string, password: string) => {
     const { user: next } = await api.register(username, password);
     setUser(next);
+    await bindFireweaveUser(next);
+    void emitClientAction({
+      event: "web.auth.register",
+      user: next.username,
+      metrics: [
+        {
+          name: "arcade_web_events",
+          value: 1,
+          labels: { event: "register", result: "ok", role: next.role },
+        },
+      ],
+    });
     return next;
   }, []);
 
@@ -58,6 +102,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.logout();
     } finally {
       setUser(null);
+      await clearFireweaveUser();
+      void emitClientAction({
+        event: "web.auth.logout",
+        metrics: [{ name: "arcade_web_events", value: 1, labels: { event: "logout", result: "ok" } }],
+      });
     }
   }, []);
 

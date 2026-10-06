@@ -1,0 +1,77 @@
+{
+  "cli": {
+    "initVersion": "2.5.2"
+  },
+  "defaultEnvironment": "production",
+  "orgId": "F58gdkA4pUKdH3Ae4xJTJKHkJ8LfmzH1",
+  "projectId": "a329f393-cab4-4853-953e-7ef70dc45ae5",
+  "projectName": "arcade",
+  "repoState": "server",
+  "rolloutReady": {
+    "attestUrl": "https://app-server.fireweave.ai",
+    "defaultEnvironment": "production",
+    "environments": {
+      "production": {
+        "posthogProjectId": "534542",
+        "tier": "prod"
+      }
+    },
+    "harnessEntrypoint": "apps/api/src/main.ts",
+    "harnessPath": "apps/api/src/fireweave/fw-harness.ts",
+    "harnesses": [
+      {
+        "surface": "ts-server",
+        "path": "apps/api/src/fireweave/fw-harness.ts",
+        "entrypoint": "apps/api/src/main.ts",
+        "trackerPath": "apps/api/src/fireweave/fw-tracker.ts",
+        "rolloutCredentialEnv": "FW_PROJECT_API_KEY"
+      },
+      {
+        "surface": "web",
+        "path": "apps/web/src/fireweave/fw-harness.ts",
+        "entrypoint": "apps/web/src/main.tsx",
+        "trackerPath": "apps/web/src/fireweave/fw-tracker.ts",
+        "rolloutCredentialEnv": "PUBLIC_FW_PROJECT_API_KEY"
+      }
+    ],
+    "posthogProjectId": "534542",
+    "promotionEnvironment": "production",
+    "rolloutCredentialEnv": "FW_PROJECT_API_KEY",
+    "webRolloutCredentialEnv": "PUBLIC_FW_PROJECT_API_KEY"
+  },
+  "server": {
+    "kind": "cloud",
+    "url": "https://app-server.fireweave.ai"
+  },
+  "surfaces": [
+    {
+      "entrypoint": "apps/api/src/main.ts",
+      "metricsClient": "openobserve",
+      "path": "apps/api/src/fireweave/fw-harness.ts",
+      "rolloutCredentialEnv": "FW_PROJECT_API_KEY",
+      "sdk": {
+        "channel": "stable",
+        "name": "@fireweaveai/server-sdk",
+        "version": "2.3.0"
+      },
+      "surface": "ts-server",
+      "surfaceId": "sfc_01M485P0VF7AJKJFYRS1ZN57HZ",
+      "trackerPath": "apps/api/src/fireweave/fw-tracker.ts"
+    },
+    {
+      "entrypoint": "apps/web/src/main.tsx",
+      "metricsClient": "openobserve",
+      "path": "apps/web/src/fireweave/fw-harness.ts",
+      "rolloutCredentialEnv": "PUBLIC_FW_PROJECT_API_KEY",
+      "sdk": {
+        "channel": "stable",
+        "name": "@fireweaveai/web-sdk",
+        "version": "2.3.0"
+      },
+      "surface": "web",
+      "surfaceId": "sfc_01M489JD3V6P0KX9EHND2BM9FP",
+      "trackerPath": "apps/web/src/fireweave/fw-tracker.ts"
+    }
+  ],
+  "version": 2
+}

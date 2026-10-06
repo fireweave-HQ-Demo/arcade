@@ -7,3 +7,6 @@ dist
 *.pem
 .deploy-sha
 .deploy-build-id
+.fireweave/.cache/
+.fireweave/.lock
+.fireweave/.queue/

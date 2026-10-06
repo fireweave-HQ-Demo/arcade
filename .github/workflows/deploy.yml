@@ -27,6 +27,10 @@ jobs:
           OPENOBSERVE_PASSWORD: ${{ secrets.OPENOBSERVE_PASSWORD }}
           OPENOBSERVE_LOG_STREAM: ${{ secrets.OPENOBSERVE_LOG_STREAM }}
           OPENOBSERVE_TRACE_STREAM: ${{ secrets.OPENOBSERVE_TRACE_STREAM }}
+          FW_API_URL: ${{ secrets.FW_API_URL }}
+          FW_PROJECT_API_KEY: ${{ secrets.FW_PROJECT_API_KEY }}
+          PUBLIC_FW_API_URL: ${{ secrets.FW_API_URL }}
+          PUBLIC_FW_PROJECT_API_KEY: ${{ secrets.PUBLIC_FW_PROJECT_API_KEY }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
@@ -34,7 +38,7 @@ jobs:
           port: 22
           timeout: 20s
           command_timeout: 2m
-          envs: POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM
+          envs: POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM,FW_API_URL,FW_PROJECT_API_KEY,PUBLIC_FW_API_URL,PUBLIC_FW_PROJECT_API_KEY
           script: |
             set -euo pipefail
             # Branch that triggered this workflow (main or fw-base) — must match prod checkout.

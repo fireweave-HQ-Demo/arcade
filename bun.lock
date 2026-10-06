@@ -12,6 +12,7 @@
         "@arcade/engines": "workspace:*",
         "@arcade/game-core": "workspace:*",
         "@arcade/shared": "workspace:*",
+        "@fireweaveai/server-sdk": "2.3.0",
         "postgres": "^3.4.5",
       },
     },
@@ -19,6 +20,7 @@
       "name": "@arcade/web",
       "version": "1.0.0",
       "dependencies": {
+        "@fireweaveai/web-sdk": "2.3.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "react-router-dom": "7",
@@ -150,6 +152,10 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
+
+    "@fireweaveai/server-sdk": ["@fireweaveai/server-sdk@2.3.0", "", {}, "sha512-Ve+QdSirfLlqtSNHL0NTbbZ1KlQSUXovFn1B+EtvOnAxFkWAP7v2KYDUviz9rkHsyrdCOTPlWEqKMfQ0yQLjEg=="],
+
+    "@fireweaveai/web-sdk": ["@fireweaveai/web-sdk@2.3.0", "", {}, "sha512-THH5KRyW0MBy7y5C9dsn8BzRi31ch3Q4BUhFyKn3kmnAaTxpIOTmJ+zIcWOEobhV53n8pYvUz7VqmFaU6YmMmA=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 
