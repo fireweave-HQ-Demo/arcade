@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Link,
   NavLink,
@@ -13,6 +13,8 @@ import {
 import { api, type GameInfo, type Match, type Scoreboard } from "./api";
 import { AdminPage } from "./Admin";
 import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from "./auth";
+import { fw } from "./fireweave/fw-harness";
+import { metric as record } from "./observability/openobserve";
 import { LobbyPage } from "./Lobby";
 import { GameBoard } from "./games/GameBoard";
 import { ArcadeMark, GameMark } from "./games/logos";
@@ -399,6 +401,126 @@ function ScoreboardPage() {
   );
 }
 
+function ProfileMenu({ enabled }: { enabled: boolean }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [stats, setStats] = useState<Scoreboard["me"]["global"] | null>(null);
+  const [recordError, setRecordError] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const loadGen = useRef(0);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: MouseEvent) {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (!enabled || !user) return null;
+
+  const initial = user.username.trim().charAt(0).toUpperCase() || "?";
+
+  function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const gen = ++loadGen.current;
+    const started = performance.now();
+    setOpen(true);
+    setRecordError(false);
+    setStats(null);
+    void record("arcade_web_profile_menu_opens_total", 1, {
+      surface: "web",
+      event: "open",
+      result: "ok",
+    });
+    void api.scoreboard().then(
+      (data) => {
+        const elapsed = Math.round(performance.now() - started);
+        if (loadGen.current === gen) setStats(data.me.global);
+        void record("arcade_web_profile_menu_load_success_total", 1, {
+          surface: "web",
+          event: "load",
+          result: "ok",
+        });
+        void record(
+          "arcade_web_profile_menu_load_ms",
+          elapsed,
+          { surface: "web", event: "load", result: "ok" },
+          "histogram",
+        );
+      },
+      () => {
+        const elapsed = Math.round(performance.now() - started);
+        if (loadGen.current === gen) setRecordError(true);
+        void record("arcade_web_profile_menu_load_errors_total", 1, {
+          surface: "web",
+          event: "load",
+          result: "error",
+        });
+        void record(
+          "arcade_web_profile_menu_load_ms",
+          elapsed,
+          { surface: "web", event: "load", result: "error" },
+          "histogram",
+        );
+      },
+    );
+  }
+
+  return (
+    <div className="profile-menu-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="avatar-btn"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`profile menu for ${user.username}`}
+        onClick={toggle}
+      >
+        {initial}
+      </button>
+      {open ? (
+        <div className="profile-popover" role="menu">
+          <ul>
+            <li>
+              <span>account</span>
+              <strong>{user.username}</strong>
+            </li>
+            <li>
+              <span>role</span>
+              <strong>{user.role === "admin" ? "admin" : "player"}</strong>
+            </li>
+            <li>
+              <span>record</span>
+              <strong>
+                {recordError
+                  ? "unavailable"
+                  : stats
+                    ? `${stats.wins} wins · ${stats.played} played`
+                    : "loading…"}
+              </strong>
+            </li>
+          </ul>
+          <Link to="/scoreboard" role="menuitem" onClick={() => setOpen(false)}>
+            scoreboard
+          </Link>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Shell() {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -407,26 +529,33 @@ function Shell() {
   const onLobby = location.pathname === "/";
   const gamesActive =
     location.pathname === "/" || location.pathname.startsWith("/play/");
+  // @fireweave-controlpoint profile-avatar-menu
+  const profileMenu = fw.controlPoints.getBooleanValue("profile-avatar-menu", false);
 
   return (
     <>
       <div className={`chrome ${onLobby ? "chrome-lobby" : ""}`}>
         <div className="topbar">
-          <p className="hint">
-            {isAdmin ? (
-              <>
-                admin · <strong>{user?.username}</strong>
-                {onAdmin ? " · portal" : ""}
-              </>
-            ) : (
-              <>
-                hi, <strong>{user?.username}</strong>
-              </>
-            )}
-          </p>
-          <button className="btn secondary" onClick={() => void logout()}>
-            log out
-          </button>
+          {profileMenu ? null : (
+            <p className="hint">
+              {isAdmin ? (
+                <>
+                  admin · <strong>{user?.username}</strong>
+                  {onAdmin ? " · portal" : ""}
+                </>
+              ) : (
+                <>
+                  hi, <strong>{user?.username}</strong>
+                </>
+              )}
+            </p>
+          )}
+          <div className="topbar-actions">
+            <ProfileMenu enabled={profileMenu} />
+            <button className="btn secondary" onClick={() => void logout()}>
+              log out
+            </button>
+          </div>
         </div>
         <nav className="nav">
           {isAdmin ? (

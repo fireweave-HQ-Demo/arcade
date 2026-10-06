@@ -272,7 +272,7 @@ export async function makeConnectedVendorProvider(): Promise<FireweaveWebClient>
 export async function makeDevProvider(): Promise<FireweaveWebClient> {
   fwClient = await initFireweave({
     mode: 'local',
-    local: { controlPoints: {} },
+    local: { controlPoints: { "profile-avatar-menu": true } },
     context: { targetingKey: resolveDeviceTargetingKey() },
   });
   return fwClient;
