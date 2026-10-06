@@ -1,5 +1,79 @@
 #!/usr/bin/env bash
+# Local hot-reload: Postgres in Docker + host Bun --watch + Vite HMR
 set -euo pipefail
 cd "$(dirname "$0")"
-docker compose -f docker-compose.yml up -d --build
-echo "arcade (dev) → http://localhost:3000"
+ROOT="$PWD"
+
+# load local secrets (OpenObserve, Postgres, …)
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
+
+docker stop temp-battle-app-1 arcade-app-1 2>/dev/null || true
+docker compose -f docker-compose.dev.yml down >/dev/null 2>&1 || true
+docker compose -f docker-compose.yml --profile docker stop app >/dev/null 2>&1 || true
+
+docker compose -f docker-compose.yml up -d db
+
+export DATABASE_URL="${DATABASE_URL:-postgres://tictac:tictac@127.0.0.1:5432/tictac}"
+if [[ "$DATABASE_URL" == *"@db:"* ]]; then
+  export DATABASE_URL="postgres://${POSTGRES_USER:-tictac}:${POSTGRES_PASSWORD:-tictac}@127.0.0.1:5432/${POSTGRES_DB:-tictac}"
+fi
+export PORT="${PORT:-3000}"
+export HOST="${HOST:-127.0.0.1}"
+export API_PROXY="${API_PROXY:-http://127.0.0.1:3000}"
+
+echo "waiting for postgres…"
+for _ in $(seq 1 40); do
+  if docker compose -f docker-compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-tictac}" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+
+# clear stale listeners
+pkill -f "bun --watch src/main.ts" 2>/dev/null || true
+pkill -f "vite --host" 2>/dev/null || true
+sleep 0.3
+
+echo "arcade (hot reload)"
+echo "  API  → http://127.0.0.1:${PORT}   (bun --watch)"
+echo "  Web  → http://127.0.0.1:5173      (vite HMR → ${API_PROXY})"
+echo "  stop → Ctrl+C  or  bun stop"
+
+API_PID=""
+WEB_PID=""
+cleanup() {
+  [[ -n "${API_PID}" ]] && kill "$API_PID" 2>/dev/null || true
+  [[ -n "${WEB_PID}" ]] && kill "$WEB_PID" 2>/dev/null || true
+  wait 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+(
+  cd "$ROOT/apps/api"
+  exec bun --watch src/main.ts
+) &
+API_PID=$!
+
+(
+  cd "$ROOT/apps/web"
+  exec bunx vite --host 127.0.0.1 --port 5173
+) &
+WEB_PID=$!
+
+# block until first healthy response (non-fatal if user Ctrl+C later)
+for _ in $(seq 1 60); do
+  if curl -fsS --max-time 1 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+    echo -n "ready: "
+    curl -s "http://127.0.0.1:${PORT}/api/health"
+    echo
+    break
+  fi
+  sleep 0.25
+done
+
+wait "$API_PID" "$WEB_PID"

@@ -12,7 +12,7 @@
     "@arcade/game-core": "workspace:*",
     "@arcade/engine-tictactoe": "workspace:*",
     "@arcade/engine-connectfour": "workspace:*",
-    "@arcade/engine-rps": "workspace:*",
+    "@arcade/engine-suite": "workspace:*",
     "postgres": "^3.4.5"
   }
 }

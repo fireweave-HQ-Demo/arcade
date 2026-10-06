@@ -6,6 +6,8 @@
  *   traces  → arcade_traces (OTLP/HTTP JSON)
  */
 
+import { metricNames } from "./metrics-catalog";
+
 const BASE = (process.env.OPENOBSERVE_URL ?? "").replace(/\/$/, "");
 const USER = process.env.OPENOBSERVE_USER ?? "";
 const PASS = process.env.OPENOBSERVE_PASSWORD ?? "";
@@ -102,16 +104,64 @@ export async function metric(
   labels: Record<string, string> = {},
   type: "counter" | "gauge" | "histogram" = "counter",
 ) {
-  const record = {
+  return ingestMetricRecords([
+    {
+      __name__: name,
+      __type__: type,
+      service: SERVICE,
+      ...labels,
+      _timestamp: nowMs(),
+      value,
+    },
+  ]);
+}
+
+/** Inject `count` samples of a named metric (admin portal). */
+export async function injectMetricSamples(
+  name: string,
+  count: number,
+  labels: Record<string, string> = {},
+  type: "counter" | "gauge" | "histogram" = "counter",
+  value = 1,
+) {
+  const base = nowMs();
+  const records = Array.from({ length: count }, (_, i) => ({
     __name__: name,
     __type__: type,
     service: SERVICE,
     ...labels,
-    _timestamp: nowMs(),
+    inject: "admin",
+    _timestamp: base + i,
     value,
-  };
+  }));
+
+  // OpenObserve accepts batches; chunk to keep payloads modest
+  const chunkSize = 100;
+  let ok = true;
+  let skipped = false;
+  let status = 0;
+  let lastData: unknown = null;
+  let ingested = 0;
+
+  for (let i = 0; i < records.length; i += chunkSize) {
+    const chunk = records.slice(i, i + chunkSize);
+    const res = await ingestMetricRecords(chunk);
+    skipped = Boolean(res.skipped);
+    status = res.status;
+    lastData = res.data;
+    if (!res.ok && !res.skipped) {
+      ok = false;
+      break;
+    }
+    if (res.ok) ingested += chunk.length;
+  }
+
+  return { ok, skipped, status, data: lastData, ingested, requested: count };
+}
+
+async function ingestMetricRecords(records: Record<string, unknown>[]) {
   try {
-    return await postJson(`/ingest/metrics/_json`, [record]);
+    return await postJson(`/ingest/metrics/_json`, records);
   } catch {
     return { ok: false, skipped: false as const, status: 0, data: null };
   }
@@ -440,7 +490,7 @@ export async function verifyInjection(retries = 8, delayMs = 1500) {
     },
     streams: {
       logs: LOG_STREAM,
-      metrics: ["arcade_http_requests", "arcade_http_duration_ms", "arcade_events", "arcade_verify"],
+      metrics: metricNames(),
       traces: TRACE_STREAM,
     },
   };

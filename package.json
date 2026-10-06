@@ -3,10 +3,11 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "bun run --filter '@arcade/api' --filter '@arcade/web' dev",
+    "dev": "./start",
     "build": "bun run --filter '@arcade/web' build",
     "start": "./start",
     "stop": "./stop",
+    "start:docker": "docker compose --profile docker up -d --build",
     "start:prod": "./start.prod",
     "stop:prod": "./stop.prod"
   }

@@ -158,6 +158,32 @@ export function createHandler(services: AppServices) {
         return respond(json(insights));
       }
 
+      if (path === "/api/admin/metrics" && req.method === "GET") {
+        const user = await services.auth.me(sessionTokenFromRequest(req));
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
+        return respond(json(services.admin.listMetrics(user)));
+      }
+
+      if (path === "/api/admin/metrics/inject" && req.method === "POST") {
+        const user = await services.auth.me(sessionTokenFromRequest(req));
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
+        const body = (await req.json()) as {
+          name?: string;
+          count?: number;
+          labels?: Record<string, string>;
+        };
+        const result = await services.admin.injectMetric(
+          user,
+          body.name ?? "",
+          body.count ?? 0,
+          body.labels,
+        );
+        return respond(json(result), {
+          metric: result.metric,
+          ingested: result.ingested,
+        });
+      }
+
       // static SPA
       let filePath = path === "/" ? "/index.html" : path;
       let file = Bun.file(join(STATIC, filePath));

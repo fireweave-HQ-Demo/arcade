@@ -1,13 +1,13 @@
+import type { EngineCatalog } from "../../domain/ports";
 import { EngineRegistry } from "@arcade/game-core";
 import { ticTacToeEngine } from "@arcade/engine-tictactoe";
 import { connectFourEngine } from "@arcade/engine-connectfour";
-import { rpsEngine } from "@arcade/engine-rps";
-import type { EngineCatalog } from "../../domain/ports";
+import { suiteEngines } from "@arcade/engine-suite";
 
 export function createEngineCatalog(): EngineCatalog {
   const registry = new EngineRegistry();
   registry.register(ticTacToeEngine);
   registry.register(connectFourEngine);
-  registry.register(rpsEngine);
+  for (const engine of suiteEngines) registry.register(engine);
   return registry;
 }

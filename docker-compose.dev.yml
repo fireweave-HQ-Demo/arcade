@@ -1,0 +1,62 @@
+# Hot-reload stack: bun --watch API + Vite, source mounted from host
+name: arcade-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tictac}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tictac}
+      POSTGRES_DB: ${POSTGRES_DB:-tictac}
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tictac}"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  api:
+    image: oven/bun:1.2-alpine
+    working_dir: /app
+    command: sh -c "bun install --frozen-lockfile && bun --watch apps/api/src/main.ts"
+    volumes:
+      - ./:/app
+      - arcade_api_nm:/app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      DATABASE_URL: postgres://${POSTGRES_USER:-tictac}:${POSTGRES_PASSWORD:-tictac}@db:5432/${POSTGRES_DB:-tictac}
+      SESSION_SECRET: ${SESSION_SECRET:-arcade-dev-secret}
+      OPENOBSERVE_URL: ${OPENOBSERVE_URL:-}
+      OPENOBSERVE_USER: ${OPENOBSERVE_USER:-}
+      OPENOBSERVE_PASSWORD: ${OPENOBSERVE_PASSWORD:-}
+      OPENOBSERVE_LOG_STREAM: ${OPENOBSERVE_LOG_STREAM:-arcade_logs}
+      OPENOBSERVE_TRACE_STREAM: ${OPENOBSERVE_TRACE_STREAM:-arcade_traces}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: oven/bun:1.2-alpine
+    working_dir: /app
+    command: sh -c "bun install --frozen-lockfile && cd apps/web && bunx vite --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./:/app
+      - arcade_web_nm:/app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      API_PROXY: http://api:3000
+    depends_on:
+      - api
+
+volumes:
+  pgdata_dev:
+  arcade_api_nm:
+  arcade_web_nm:

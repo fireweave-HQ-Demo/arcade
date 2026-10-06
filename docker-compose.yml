@@ -1,9 +1,11 @@
-# Local / development — http://localhost:3000
+# Local development — Postgres only (+ optional baked app via profile "docker")
 name: arcade
 
 services:
   db:
     image: postgres:16-alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-tictac}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tictac}
@@ -17,7 +19,9 @@ services:
       retries: 15
     restart: unless-stopped
 
+  # Optional: baked container (no live reload). Use: docker compose --profile docker up -d --build
   app:
+    profiles: ["docker"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -25,7 +29,7 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
-      DATABASE_URL: ${DATABASE_URL:-postgres://tictac:tictac@db:5432/tictac}
+      DATABASE_URL: postgres://${POSTGRES_USER:-tictac}:${POSTGRES_PASSWORD:-tictac}@db:5432/${POSTGRES_DB:-tictac}
       SESSION_SECRET: ${SESSION_SECRET:-arcade-dev-secret}
       PORT: "3000"
       OPENOBSERVE_URL: ${OPENOBSERVE_URL}

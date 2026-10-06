@@ -60,9 +60,33 @@ button, input { font: inherit; }
   margin-top: 1.25rem;
 }
 
+.nav a.active,
 .nav button.active {
   background: var(--mint);
   color: var(--ink);
+}
+
+.nav a.btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.game-card {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+a.btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
 .panel {
@@ -177,16 +201,36 @@ button, input { font: inherit; }
   margin-bottom: 0.4rem;
 }
 
-.rps-choices { display: flex; gap: 0.65rem; flex-wrap: wrap; }
-.rps-pick {
-  min-width: 110px;
-  padding: 1rem;
-  border: 1px solid var(--line);
-  background: #fff;
-  cursor: pointer;
-  font-weight: 600;
+.btn.secondary.active {
+  background: var(--mint);
+  color: var(--ink);
 }
-.rps-pick:hover:not(:disabled) { background: var(--sand); }
+
+.boxes-board { display: grid; gap: 0; max-width: 280px; }
+.boxes-hrow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.35rem;
+  padding-left: 0.55rem;
+}
+.boxes-edge {
+  border: 0;
+  cursor: pointer;
+  background: rgba(20, 32, 27, 0.12);
+}
+.boxes-edge.h { height: 8px; width: 100%; }
+.boxes-edge.v { width: 8px; height: 48px; }
+.boxes-edge.taken { background: var(--teal); }
+.boxes-edge:disabled { cursor: default; opacity: 0.85; }
+.boxes-vrow { display: grid; grid-template-columns: repeat(3, auto); align-items: center; }
+.boxes-vcell { display: flex; align-items: center; }
+.boxes-owner {
+  width: 48px;
+  height: 48px;
+  display: inline-block;
+}
+.boxes-owner.p1 { background: rgba(125, 255, 162, 0.55); }
+.boxes-owner.p2 { background: rgba(20, 32, 27, 0.35); }
 
 table.data {
   width: 100%;
@@ -211,6 +255,73 @@ table.data th { font-size: 0.8rem; opacity: 0.7; }
   gap: 1rem;
   flex-wrap: wrap;
   align-items: flex-end;
+}
+
+.brand-sub {
+  font-style: normal;
+  font-size: 0.45em;
+  letter-spacing: 0.04em;
+  margin-left: 0.35rem;
+  color: var(--ink);
+  opacity: 0.55;
+  vertical-align: middle;
+}
+
+.app-admin .panel {
+  border-color: rgba(31, 111, 91, 0.22);
+}
+
+.auth-modes { margin-top: 0.25rem; }
+.admin-tabs { margin: 0; }
+.admin-shell { display: grid; gap: 0; }
+
+.mono {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.85em;
+}
+
+.metrics-table td:last-child { white-space: nowrap; }
+.metrics-table th:last-child { text-align: right; }
+.metrics-table td:last-child { text-align: right; }
+
+.inject-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(20, 32, 27, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.inject-card {
+  width: min(420px, 100%);
+  padding: 1.35rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.inject-label {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1rem 0 0.75rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.inject-label input {
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 0.75rem 0.85rem;
+  outline: none;
+  font: inherit;
+}
+
+.inject-label input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(31, 111, 91, 0.15);
 }
 
 @media (max-width: 640px) {

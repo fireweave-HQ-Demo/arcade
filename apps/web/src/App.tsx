@@ -1,30 +1,78 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
-  api,
-  type AdminInsights,
-  type GameInfo,
-  type Match,
-  type Scoreboard,
-  type User,
-} from "./api";
+  Link,
+  NavLink,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+import { api, type GameInfo, type Match, type Scoreboard } from "./api";
+import { AdminPage } from "./Admin";
+import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from "./auth";
+import { GameBoard } from "./Boards";
 
-type View = "lobby" | "play" | "scoreboard" | "admin";
+type LoginMode = "player" | "admin";
 
-function Auth({ onAuth }: { onAuth: (u: User) => void }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+function AuthPage() {
+  const { user, loading, login, register, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const fromPath =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+
+  const [mode, setMode] = useState<LoginMode>(
+    fromPath?.startsWith("/admin") ? "admin" : "player",
+  );
+  const [username, setUsername] = useState(mode === "admin" ? "admin" : "");
+  const [password, setPassword] = useState(mode === "admin" ? "admin" : "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function submit(mode: "login" | "register") {
+  function switchMode(next: LoginMode) {
+    setMode(next);
+    setError("");
+    if (next === "admin") {
+      setUsername("admin");
+      setPassword("admin");
+    } else {
+      setUsername("");
+      setPassword("");
+    }
+  }
+
+  function homeFor(role: "user" | "admin") {
+    if (role === "admin") {
+      if (fromPath && fromPath.startsWith("/admin")) return fromPath;
+      return "/admin";
+    }
+    if (fromPath && !fromPath.startsWith("/admin") && fromPath !== "/login") {
+      return fromPath;
+    }
+    return "/";
+  }
+
+  useEffect(() => {
+    if (!loading && user) navigate(homeFor(user.role), { replace: true });
+  }, [loading, user]);
+
+  async function submit(kind: "login" | "register") {
     setBusy(true);
     setError("");
     try {
-      const { user } =
-        mode === "login"
-          ? await api.login(username, password)
-          : await api.register(username, password);
-      onAuth(user);
+      const next =
+        kind === "login"
+          ? await login(username, password)
+          : await register(username, password);
+      if (mode === "admin" && next.role !== "admin") {
+        await logout();
+        setError("this account is not an admin — use player login");
+        return;
+      }
+      navigate(homeFor(next.role), { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "failed");
     } finally {
@@ -32,9 +80,41 @@ function Auth({ onAuth }: { onAuth: (u: User) => void }) {
     }
   }
 
+  if (loading) {
+    return (
+      <section className="panel">
+        <p className="hint">checking session…</p>
+      </section>
+    );
+  }
+
+  if (user) return <Navigate to={homeFor(user.role)} replace />;
+
   return (
-    <section className="panel">
-      <p className="hint">one login for every game · human vs arcade bot</p>
+    <section className="panel auth-panel">
+      <div className="nav auth-modes">
+        <button
+          type="button"
+          className={`btn secondary ${mode === "player" ? "active" : ""}`}
+          onClick={() => switchMode("player")}
+        >
+          player
+        </button>
+        <button
+          type="button"
+          className={`btn secondary ${mode === "admin" ? "active" : ""}`}
+          onClick={() => switchMode("admin")}
+        >
+          admin portal
+        </button>
+      </div>
+
+      <p className="hint" style={{ marginTop: "1rem" }}>
+        {mode === "admin"
+          ? "manage insights, leaderboards, and OpenObserve metric injection"
+          : "one account for every game · human vs arcade bot"}
+      </p>
+
       <form
         className="auth-form"
         style={{ marginTop: "1rem" }}
@@ -45,7 +125,13 @@ function Auth({ onAuth }: { onAuth: (u: User) => void }) {
       >
         <label>
           username
-          <input value={username} onChange={(e) => setUsername(e.target.value)} required minLength={3} />
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            minLength={3}
+            autoComplete="username"
+          />
         </label>
         <label>
           password
@@ -55,160 +141,73 @@ function Auth({ onAuth }: { onAuth: (u: User) => void }) {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={4}
+            autoComplete="current-password"
           />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <div className="row">
-          <button className="btn mint" type="submit" disabled={busy}>log in</button>
-          <button className="btn secondary" type="button" disabled={busy} onClick={() => void submit("register")}>
-            create account
+          <button className="btn mint" type="submit" disabled={busy}>
+            {mode === "admin" ? "enter admin portal" : "log in"}
           </button>
+          {mode === "player" ? (
+            <button
+              className="btn secondary"
+              type="button"
+              disabled={busy}
+              onClick={() => void submit("register")}
+            >
+              create account
+            </button>
+          ) : null}
         </div>
-        <p className="hint">admin: admin / admin</p>
+        {mode === "admin" ? (
+          <p className="hint">default credentials: admin / admin</p>
+        ) : (
+          <p className="hint">new here? create an account — admin login is a separate tab</p>
+        )}
       </form>
     </section>
   );
 }
 
-function TicTacToeBoard({
-  match,
-  busy,
-  onMove,
-}: {
-  match: Match;
-  busy: boolean;
-  onMove: (body: unknown) => void;
-}) {
-  const board = (match.state as { board: string[] }).board;
-  const done = match.status !== "playing";
-  return (
-    <div className="board">
-      {board.map((cell, i) => (
-        <button
-          key={i}
-          className={`cell ${cell === "X" ? "x" : cell === "O" ? "o" : ""}`}
-          disabled={busy || done || cell !== ""}
-          onClick={() => onMove({ index: i })}
-        >
-          {cell}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ConnectFourBoard({
-  match,
-  busy,
-  onMove,
-}: {
-  match: Match;
-  busy: boolean;
-  onMove: (body: unknown) => void;
-}) {
-  const grid = (match.state as { grid: number[] }).grid;
-  const done = match.status !== "playing";
-  const rows = 6;
-  const cols = 7;
-  return (
-    <div>
-      <div className="c4-cols">
-        {Array.from({ length: cols }, (_, c) => (
-          <button
-            key={c}
-            className="btn secondary"
-            style={{ padding: "0.35rem" }}
-            disabled={busy || done}
-            onClick={() => onMove({ column: c })}
-          >
-            ↓
-          </button>
-        ))}
-      </div>
-      <div className="board c4">
-        {Array.from({ length: rows * cols }, (_, i) => {
-          const v = grid[i] ?? 0;
-          return (
-            <div
-              key={i}
-              className={`cell ${v === 1 ? "p1" : v === 2 ? "p2" : "empty"}`}
-              aria-label={`cell ${i}`}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function RpsBoard({
-  match,
-  busy,
-  onMove,
-  onNew,
-}: {
-  match: Match;
-  busy: boolean;
-  onMove: (body: unknown) => void;
-  onNew: () => void;
-}) {
-  const state = match.state as { human: string | null; bot: string | null };
-  const done = match.status !== "playing";
-  return (
-    <div className="stack" style={{ maxWidth: "none" }}>
-      <div className="rps-choices">
-        {(["rock", "paper", "scissors"] as const).map((choice) => (
-          <button
-            key={choice}
-            className="rps-pick"
-            disabled={busy || done}
-            onClick={() => onMove({ choice })}
-          >
-            {choice}
-          </button>
-        ))}
-      </div>
-      {state.human || state.bot ? (
-        <p className="status">
-          you: {state.human ?? "—"} · bot: {state.bot ?? "…"}
-        </p>
-      ) : (
-        <p className="hint">pick your move</p>
-      )}
-      {done ? (
-        <button className="btn mint" onClick={onNew} disabled={busy}>play again</button>
-      ) : null}
-    </div>
-  );
-}
-
-function PlayView({
-  game,
-  onBack,
-}: {
-  game: GameInfo;
-  onBack: () => void;
-}) {
+function PlayPage() {
+  const { gameId = "" } = useParams();
+  const [game, setGame] = useState<GameInfo | null>(null);
   const [match, setMatch] = useState<Match | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  async function load() {
-    setBusy(true);
-    try {
-      setMatch(await api.match(game.id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "failed");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const [booting, setBooting] = useState(true);
 
   useEffect(() => {
-    void load();
-  }, [game.id]);
+    let cancelled = false;
+    setBooting(true);
+    setError("");
+    setMatch(null);
+    void (async () => {
+      try {
+        const { games } = await api.games();
+        const found = games.find((g) => g.id === gameId) ?? null;
+        if (cancelled) return;
+        if (!found) {
+          setGame(null);
+          setError("unknown game");
+          return;
+        }
+        setGame(found);
+        setMatch(await api.match(found.id));
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "failed");
+      } finally {
+        if (!cancelled) setBooting(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId]);
 
   async function move(body: unknown) {
+    if (!game) return;
     setBusy(true);
     setError("");
     try {
@@ -221,7 +220,9 @@ function PlayView({
   }
 
   async function fresh() {
+    if (!game) return;
     setBusy(true);
+    setError("");
     try {
       setMatch(await api.newMatch(game.id));
     } catch (e) {
@@ -229,6 +230,25 @@ function PlayView({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (booting) {
+    return (
+      <section className="panel">
+        <p className="hint">restoring match…</p>
+      </section>
+    );
+  }
+
+  if (!game) {
+    return (
+      <section className="panel">
+        <p className="error">{error || "game not found"}</p>
+        <Link className="btn secondary" to="/" style={{ marginTop: "1rem", display: "inline-block" }}>
+          back to lobby
+        </Link>
+      </section>
+    );
   }
 
   const statusText = !match
@@ -252,52 +272,63 @@ function PlayView({
           <p className="hint">{game.description}</p>
         </div>
         <div className="row">
-          <button className="btn secondary" onClick={onBack}>lobby</button>
-          <button className="btn mint" disabled={busy} onClick={() => void fresh()}>new game</button>
+          <Link className="btn secondary" to="/">
+            lobby
+          </Link>
+          <button className="btn mint" disabled={busy} onClick={() => void fresh()}>
+            new game
+          </button>
         </div>
       </div>
-      <div style={{ marginTop: "1.25rem" }} className={`status ${statusClass}`}>{statusText}</div>
+      <div style={{ marginTop: "1.25rem" }} className={`status ${statusClass}`}>
+        {statusText}
+      </div>
       <div style={{ marginTop: "1rem" }}>
-        {match && game.id === "tictactoe" ? (
-          <TicTacToeBoard match={match} busy={busy} onMove={move} />
-        ) : null}
-        {match && game.id === "connectfour" ? (
-          <ConnectFourBoard match={match} busy={busy} onMove={move} />
-        ) : null}
-        {match && game.id === "rps" ? (
-          <RpsBoard match={match} busy={busy} onMove={move} onNew={() => void fresh()} />
-        ) : null}
+        {match ? <GameBoard match={match} busy={busy} onMove={move} /> : null}
       </div>
       {error ? <p className="error">{error}</p> : null}
     </section>
   );
 }
 
-function Lobby({
-  games,
-  onPlay,
-}: {
-  games: GameInfo[];
-  onPlay: (g: GameInfo) => void;
-}) {
+function LobbyPage() {
+  const [games, setGames] = useState<GameInfo[]>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void api
+      .games()
+      .then((r) => setGames(r.games))
+      .catch((e: Error) => setError(e.message));
+  }, []);
+
+  if (error) {
+    return (
+      <section className="panel">
+        <p className="error">{error}</p>
+      </section>
+    );
+  }
+
   return (
     <section className="panel">
       <div className="status">choose a game</div>
       <p className="hint">same account · same bot · scores roll up to one board</p>
       <div className="grid-cards">
         {games.map((g) => (
-          <button key={g.id} className="game-card" onClick={() => onPlay(g)}>
+          <Link key={g.id} className="game-card" to={`/play/${g.id}`}>
             <h3>{g.name}</h3>
             <p>{g.description}</p>
             <span className="badge">vs arcade bot</span>
-          </button>
+          </Link>
         ))}
+        {!games.length ? <p className="hint">loading games…</p> : null}
       </div>
     </section>
   );
 }
 
-function ScoreboardView() {
+function ScoreboardPage() {
   const [data, setData] = useState<Scoreboard | null>(null);
   const [error, setError] = useState("");
 
@@ -305,25 +336,51 @@ function ScoreboardView() {
     void api
       .scoreboard()
       .then(setData)
-      .catch((e) => setError(e.message));
+      .catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <section className="panel"><p className="error">{error}</p></section>;
-  if (!data) return <section className="panel"><p className="hint">loading scoreboard…</p></section>;
+  if (error) {
+    return (
+      <section className="panel">
+        <p className="error">{error}</p>
+      </section>
+    );
+  }
+  if (!data) {
+    return (
+      <section className="panel">
+        <p className="hint">loading scoreboard…</p>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">
       <div className="status">your scoreboard</div>
       <div className="stats" style={{ marginTop: "1rem" }}>
-        <div><strong>{data.me.global.played}</strong>played</div>
-        <div><strong>{data.me.global.wins}</strong>wins</div>
-        <div><strong>{data.me.global.draws}</strong>draws</div>
-        <div><strong>{data.me.global.losses}</strong>losses</div>
+        <div>
+          <strong>{data.me.global.played}</strong>played
+        </div>
+        <div>
+          <strong>{data.me.global.wins}</strong>wins
+        </div>
+        <div>
+          <strong>{data.me.global.draws}</strong>draws
+        </div>
+        <div>
+          <strong>{data.me.global.losses}</strong>losses
+        </div>
       </div>
       <h3 style={{ marginTop: "1.5rem" }}>by game</h3>
       <table className="data">
         <thead>
-          <tr><th>game</th><th>played</th><th>wins</th><th>draws</th><th>losses</th></tr>
+          <tr>
+            <th>game</th>
+            <th>played</th>
+            <th>wins</th>
+            <th>draws</th>
+            <th>losses</th>
+          </tr>
         </thead>
         <tbody>
           {data.me.byGame.map((r) => (
@@ -336,14 +393,20 @@ function ScoreboardView() {
             </tr>
           ))}
           {!data.me.byGame.length ? (
-            <tr><td colSpan={5}>no finished matches yet</td></tr>
+            <tr>
+              <td colSpan={5}>no finished matches yet</td>
+            </tr>
           ) : null}
         </tbody>
       </table>
       <h3 style={{ marginTop: "1.5rem" }}>leaderboard</h3>
       <table className="data">
         <thead>
-          <tr><th>player</th><th>wins</th><th>played</th></tr>
+          <tr>
+            <th>player</th>
+            <th>wins</th>
+            <th>played</th>
+          </tr>
         </thead>
         <tbody>
           {data.leaderboard.map((r) => (
@@ -359,174 +422,116 @@ function ScoreboardView() {
   );
 }
 
-function AdminView() {
-  const [data, setData] = useState<AdminInsights | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    void api
-      .adminInsights()
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, []);
-
-  const maxPlays = useMemo(
-    () => Math.max(1, ...(data?.popularity.map((p) => p.plays) ?? [1])),
-    [data],
-  );
-
-  if (error) return <section className="panel"><p className="error">{error}</p></section>;
-  if (!data) return <section className="panel"><p className="hint">loading insights…</p></section>;
+function Shell() {
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  const isAdmin = user?.role === "admin";
+  const onAdmin = location.pathname.startsWith("/admin");
+  const gamesActive =
+    location.pathname === "/" || location.pathname.startsWith("/play/");
 
   return (
-    <section className="panel">
-      <div className="status">admin · game popularity</div>
-      <div className="stats" style={{ marginTop: "1rem" }}>
-        <div><strong>{data.totals.plays}</strong>total plays</div>
-        <div><strong>{data.totals.plays24h}</strong>last 24h</div>
+    <>
+      <div className="topbar">
+        <p className="hint">
+          {isAdmin ? (
+            <>
+              admin session · <strong>{user?.username}</strong>
+              {onAdmin ? " · portal" : " · player view"}
+            </>
+          ) : (
+            <>
+              signed in as <strong>{user?.username}</strong>
+            </>
+          )}
+        </p>
+        <button className="btn secondary" onClick={() => void logout()}>
+          log out
+        </button>
       </div>
-      <div className="bars">
-        {data.popularity.map((p) => (
-          <div className="bar-row" key={p.gameId}>
-            <span>{p.name}</span>
-            <div className="bar-track">
-              <div className="bar-fill" style={{ width: `${(p.plays / maxPlays) * 100}%` }} />
-            </div>
-            <span>{p.plays}</span>
-          </div>
-        ))}
-      </div>
-      <h3 style={{ marginTop: "1.5rem" }}>outcomes</h3>
-      <table className="data">
-        <thead>
-          <tr><th>game</th><th>human</th><th>bot</th><th>draw</th><th>24h</th></tr>
-        </thead>
-        <tbody>
-          {data.popularity.map((p) => (
-            <tr key={p.gameId}>
-              <td>{p.name}</td>
-              <td>{p.humanWins}</td>
-              <td>{p.botWins}</td>
-              <td>{p.draws}</td>
-              <td>{p.plays24h}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <h3 style={{ marginTop: "1.5rem" }}>recent matches</h3>
-      <table className="data">
-        <thead>
-          <tr><th>id</th><th>user</th><th>game</th><th>result</th></tr>
-        </thead>
-        <tbody>
-          {data.recent.map((r) => (
-            <tr key={r.id}>
-              <td>{r.id}</td>
-              <td>{r.username}</td>
-              <td>{r.gameId}</td>
-              <td>{r.winner ?? r.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+      <nav className="nav">
+        {isAdmin ? (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
+          >
+            admin portal
+          </NavLink>
+        ) : null}
+        <NavLink
+          to="/"
+          end
+          className={() => `btn secondary ${gamesActive ? "active" : ""}`}
+        >
+          games
+        </NavLink>
+        <NavLink
+          to="/scoreboard"
+          className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
+        >
+          scoreboard
+        </NavLink>
+      </nav>
+      <Outlet />
+    </>
+  );
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<AuthPage />} />
+      <Route
+        element={
+          <RequireAuth>
+            <Shell />
+          </RequireAuth>
+        }
+      >
+        <Route index element={<LobbyPage />} />
+        <Route path="play/:gameId" element={<PlayPage />} />
+        <Route path="scoreboard" element={<ScoreboardPage />} />
+        <Route
+          path="admin"
+          element={
+            <RequireAdmin>
+              <AdminPage />
+            </RequireAdmin>
+          }
+        />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function AppChrome() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const adminPortal = user?.role === "admin" && location.pathname.startsWith("/admin");
+
+  return (
+    <main className={`app ${adminPortal ? "app-admin" : ""}`}>
+      <h1 className="brand">
+        <Link to={user?.role === "admin" ? "/admin" : "/"} className="brand-link">
+          <span>arcade</span>
+          {adminPortal ? <em className="brand-sub"> admin</em> : null}
+        </Link>
+      </h1>
+      <p className="tagline">
+        {adminPortal
+          ? "admin portal — game insights, top players, and OpenObserve metric injection."
+          : "multi-game centre — human vs arcade bot, shared login, one scoreboard, full traces."}
+      </p>
+      <AppRoutes />
+    </main>
   );
 }
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>("lobby");
-  const [games, setGames] = useState<GameInfo[]>([]);
-  const [active, setActive] = useState<GameInfo | null>(null);
-
-  useEffect(() => {
-    void api
-      .me()
-      .then(({ user }) => setUser(user))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    void api.games().then((r) => setGames(r.games));
-  }, [user]);
-
   return (
-    <main className="app">
-      <h1 className="brand">
-        <span>arcade</span>
-      </h1>
-      <p className="tagline">
-        multi-game centre — human vs arcade bot, shared login, one scoreboard, full traces.
-      </p>
-
-      {loading ? (
-        <section className="panel"><p className="hint">checking session…</p></section>
-      ) : !user ? (
-        <Auth onAuth={setUser} />
-      ) : (
-        <>
-          <div className="topbar">
-            <p className="hint">
-              signed in as <strong>{user.username}</strong>
-              {user.role === "admin" ? " · admin" : ""}
-            </p>
-            <button
-              className="btn secondary"
-              onClick={() => void api.logout().then(() => setUser(null))}
-            >
-              log out
-            </button>
-          </div>
-          <nav className="nav">
-            <button
-              className={`btn secondary ${view === "lobby" || view === "play" ? "active" : ""}`}
-              onClick={() => {
-                setView("lobby");
-                setActive(null);
-              }}
-            >
-              games
-            </button>
-            <button
-              className={`btn secondary ${view === "scoreboard" ? "active" : ""}`}
-              onClick={() => setView("scoreboard")}
-            >
-              scoreboard
-            </button>
-            {user.role === "admin" ? (
-              <button
-                className={`btn secondary ${view === "admin" ? "active" : ""}`}
-                onClick={() => setView("admin")}
-              >
-                admin
-              </button>
-            ) : null}
-          </nav>
-
-          {view === "lobby" && !active ? (
-            <Lobby
-              games={games}
-              onPlay={(g) => {
-                setActive(g);
-                setView("play");
-              }}
-            />
-          ) : null}
-          {view === "play" && active ? (
-            <PlayView
-              game={active}
-              onBack={() => {
-                setActive(null);
-                setView("lobby");
-              }}
-            />
-          ) : null}
-          {view === "scoreboard" ? <ScoreboardView /> : null}
-          {view === "admin" ? <AdminView /> : null}
-        </>
-      )}
-    </main>
+    <AuthProvider>
+      <AppChrome />
+    </AuthProvider>
   );
 }
