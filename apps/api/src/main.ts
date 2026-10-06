@@ -2,7 +2,8 @@ import { getServices } from "./bootstrap";
 import { createHandler } from "./interfaces/http/router";
 
 const PORT = Number(process.env.PORT ?? 3000);
-const HOST = process.env.HOST ?? "127.0.0.1";
+// Docker/prod need 0.0.0.0 so published ports work; local `bun start` sets HOST=127.0.0.1
+const HOST = process.env.HOST ?? "0.0.0.0";
 
 const services = await getServices();
 const handler = createHandler(services);
