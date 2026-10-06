@@ -319,7 +319,7 @@
   animation: fx-scribble 0.7s ease forwards;
 }
 .outcome[data-game="dotsboxes"][data-result="win"] span {
-  border: 3px solid var(--teal); background: rgba(125, 255, 162, 0.35);
+  border: 3px solid var(--teal); background: rgba(200, 255, 46, 0.35);
   width: 28px; height: 28px;
   animation: fx-fillbox 0.8s ease forwards;
 }
