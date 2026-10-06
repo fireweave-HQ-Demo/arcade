@@ -1,5 +1,5 @@
 # Production — http://<host>:80
-name: temp-battle-prod
+name: arcade-prod
 
 services:
   db:
@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
       args:
         PORT: "80"
-    image: temp-battle-app:prod
+    image: arcade-app:prod
     ports:
       - "80:80"
     environment:
@@ -35,8 +35,8 @@ services:
       OPENOBSERVE_URL: ${OPENOBSERVE_URL}
       OPENOBSERVE_USER: ${OPENOBSERVE_USER}
       OPENOBSERVE_PASSWORD: ${OPENOBSERVE_PASSWORD}
-      OPENOBSERVE_LOG_STREAM: ${OPENOBSERVE_LOG_STREAM:-temp_battle_logs}
-      OPENOBSERVE_TRACE_STREAM: ${OPENOBSERVE_TRACE_STREAM:-temp_battle_traces}
+      OPENOBSERVE_LOG_STREAM: ${OPENOBSERVE_LOG_STREAM:-arcade_logs}
+      OPENOBSERVE_TRACE_STREAM: ${OPENOBSERVE_TRACE_STREAM:-arcade_traces}
     depends_on:
       db:
         condition: service_healthy

@@ -6,4 +6,4 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
-echo "temp-battle (prod) → http://localhost:80"
+echo "arcade (prod) → http://localhost:80"

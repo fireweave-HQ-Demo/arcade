@@ -1,10 +1,10 @@
 {
-  "name": "temp-battle",
+  "name": "arcade",
   "private": true,
-  "workspaces": ["server", "client"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "bun run --filter '*' dev",
-    "build": "bun run --filter client build && bun run --filter server build",
+    "dev": "bun run --filter '@arcade/api' --filter '@arcade/web' dev",
+    "build": "bun run --filter '@arcade/web' build",
     "start": "./start",
     "stop": "./stop",
     "start:prod": "./start.prod",

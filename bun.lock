@@ -5,8 +5,20 @@
     "": {
       "name": "temp-battle",
     },
-    "client": {
-      "name": "client",
+    "apps/api": {
+      "name": "@arcade/api",
+      "version": "1.0.0",
+      "dependencies": {
+        "@arcade/engine-connectfour": "workspace:*",
+        "@arcade/engine-rps": "workspace:*",
+        "@arcade/engine-tictactoe": "workspace:*",
+        "@arcade/game-core": "workspace:*",
+        "@arcade/shared": "workspace:*",
+        "postgres": "^3.4.5",
+      },
+    },
+    "apps/web": {
+      "name": "@arcade/web",
       "version": "1.0.0",
       "dependencies": {
         "react": "^19.0.0",
@@ -20,15 +32,54 @@
         "vite": "^6.0.3",
       },
     },
-    "server": {
-      "name": "server",
+    "packages/engine-connectfour": {
+      "name": "@arcade/engine-connectfour",
       "version": "1.0.0",
       "dependencies": {
-        "postgres": "^3.4.5",
+        "@arcade/game-core": "workspace:*",
       },
+    },
+    "packages/engine-rps": {
+      "name": "@arcade/engine-rps",
+      "version": "1.0.0",
+      "dependencies": {
+        "@arcade/game-core": "workspace:*",
+      },
+    },
+    "packages/engine-tictactoe": {
+      "name": "@arcade/engine-tictactoe",
+      "version": "1.0.0",
+      "dependencies": {
+        "@arcade/game-core": "workspace:*",
+      },
+    },
+    "packages/game-core": {
+      "name": "@arcade/game-core",
+      "version": "1.0.0",
+      "dependencies": {
+        "@arcade/shared": "workspace:*",
+      },
+    },
+    "packages/shared": {
+      "name": "@arcade/shared",
+      "version": "1.0.0",
     },
   },
   "packages": {
+    "@arcade/api": ["@arcade/api@workspace:apps/api"],
+
+    "@arcade/engine-connectfour": ["@arcade/engine-connectfour@workspace:packages/engine-connectfour"],
+
+    "@arcade/engine-rps": ["@arcade/engine-rps@workspace:packages/engine-rps"],
+
+    "@arcade/engine-tictactoe": ["@arcade/engine-tictactoe@workspace:packages/engine-tictactoe"],
+
+    "@arcade/game-core": ["@arcade/game-core@workspace:packages/game-core"],
+
+    "@arcade/shared": ["@arcade/shared@workspace:packages/shared"],
+
+    "@arcade/web": ["@arcade/web@workspace:apps/web"],
+
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
     "@babel/compat-data": ["@babel/compat-data@7.29.7", "", {}, "sha512-locTkQyKvwIEgBzVrn8693ebc97F2U8ZHjbXwDXJ5Fn2TCpNwTlKcaKLkdHop5c/icOFE7qt7Q9JC5hnKNa6Gg=="],
@@ -205,8 +256,6 @@
 
     "caniuse-lite": ["caniuse-lite@1.0.30001814", "", {}, "sha512-/Uaf1lAzr59XcMpW0o96WoEfr+VXK2OX4U9AgFoiSHsVJ4HppnIFUjtYzsyDH2+tgANaQb2/oxYGwCPapN1FpA=="],
 
-    "client": ["client@workspace:client"],
-
     "convert-source-map": ["convert-source-map@2.0.0", "", {}, "sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg=="],
 
     "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
@@ -258,8 +307,6 @@
     "scheduler": ["scheduler@0.28.0", "", {}, "sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw=="],
 
     "semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
-
-    "server": ["server@workspace:server"],
 
     "source-map-js": ["source-map-js@1.2.2", "", {}, "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="],
 

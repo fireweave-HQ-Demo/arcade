@@ -2,15 +2,20 @@
 FROM oven/bun:1.2-alpine AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
-COPY server/package.json ./server/
-COPY client/package.json ./client/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/game-core/package.json ./packages/game-core/
+COPY packages/engine-tictactoe/package.json ./packages/engine-tictactoe/
+COPY packages/engine-connectfour/package.json ./packages/engine-connectfour/
+COPY packages/engine-rps/package.json ./packages/engine-rps/
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
 FROM deps AS build
-COPY client ./client
-COPY server ./server
-RUN bun run --filter client build
+COPY packages ./packages
+COPY apps ./apps
+RUN bun run --filter '@arcade/web' build
 
 FROM oven/bun:1.2-alpine AS runtime
 WORKDIR /app
@@ -19,8 +24,9 @@ ENV NODE_ENV=production \
     PORT=${PORT}
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./
-COPY --from=deps /app/server/package.json ./server/
-COPY server/src ./server/src
-COPY --from=build /app/client/dist ./client/dist
+COPY --from=deps /app/apps/api/package.json ./apps/api/
+COPY packages ./packages
+COPY apps/api ./apps/api
+COPY --from=build /app/apps/web/dist ./apps/web/dist
 EXPOSE ${PORT}
-CMD ["bun", "run", "server/src/index.ts"]
+CMD ["bun", "run", "apps/api/src/main.ts"]

@@ -3,7 +3,7 @@
 # Target: < 30s Actions wall-clock when image layers / fingerprint match.
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-$HOME/temp-battle}"
+APP_DIR="${APP_DIR:-$HOME/arcade}"
 cd "$APP_DIR"
 
 dc() {
@@ -16,8 +16,8 @@ fingerprint() {
     Dockerfile \
     package.json \
     bun.lock \
-    server \
-    client \
+    apps \
+    packages \
     docker-compose.prod.yml \
     | sha256sum | awk '{print $1}'
 }
@@ -37,8 +37,8 @@ NODE_ENV=production
 OPENOBSERVE_URL=${OPENOBSERVE_URL}
 OPENOBSERVE_USER=${OPENOBSERVE_USER}
 OPENOBSERVE_PASSWORD=${OPENOBSERVE_PASSWORD}
-OPENOBSERVE_LOG_STREAM=${OPENOBSERVE_LOG_STREAM:-temp_battle_logs}
-OPENOBSERVE_TRACE_STREAM=${OPENOBSERVE_TRACE_STREAM:-temp_battle_traces}
+OPENOBSERVE_LOG_STREAM=${OPENOBSERVE_LOG_STREAM:-arcade_logs}
+OPENOBSERVE_TRACE_STREAM=${OPENOBSERVE_TRACE_STREAM:-arcade_traces}
 EOF
 
 # Stop legacy dev stack (port 3000) if still running
@@ -46,7 +46,7 @@ sudo docker compose -f docker-compose.yml down --remove-orphans >/dev/null 2>&1 
 
 NEED_BUILD=1
 if [[ -n "${PREV_FP}" && "${PREV_FP}" == "${FP}" ]] \
-  && sudo docker image inspect temp-battle-app:prod >/dev/null 2>&1; then
+  && sudo docker image inspect arcade-app:prod >/dev/null 2>&1; then
   NEED_BUILD=0
 fi
 

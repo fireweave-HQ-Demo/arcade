@@ -1,0 +1,11 @@
+{
+  "name": "@arcade/engine-tictactoe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@arcade/game-core": "workspace:*"
+  }
+}
