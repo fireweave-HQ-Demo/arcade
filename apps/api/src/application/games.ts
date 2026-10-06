@@ -37,10 +37,17 @@ function traceFields(trace?: TraceCtx) {
   return { traceId: trace?.traceId, parentSpanId: trace?.parentSpanId };
 }
 
+const PIN_LIMIT = 6;
+
 export function createGameUseCases(deps: {
   matches: MatchRepository;
   engines: EngineCatalog;
   obs: ObservabilityPort;
+  pins: {
+    list(userId: number): Promise<string[]>;
+    add(userId: number, gameId: string): Promise<void>;
+    remove(userId: number, gameId: string): Promise<boolean>;
+  };
 }) {
   return {
     async listGames(trace?: TraceCtx) {
@@ -259,6 +266,34 @@ export function createGameUseCases(deps: {
 
       const updated = await deps.matches.update(match);
       return toDto(updated);
+    },
+
+    async listPins(user: PublicUser) {
+      return deps.pins.list(user.id);
+    },
+
+    async pin(user: PublicUser, gameId: string) {
+      try {
+        deps.engines.require(gameId);
+      } catch {
+        throw new AppError("Unknown game", 404, "unknown_game");
+      }
+      const current = await deps.pins.list(user.id);
+      if (current.includes(gameId)) throw new AppError("Already pinned", 409, "already_pinned");
+      if (current.length >= PIN_LIMIT) throw new AppError("Pin limit reached", 409, "limit");
+      await deps.pins.add(user.id, gameId);
+      return [...current, gameId];
+    },
+
+    async unpin(user: PublicUser, gameId: string) {
+      try {
+        deps.engines.require(gameId);
+      } catch {
+        throw new AppError("Unknown game", 404, "unknown_game");
+      }
+      const removed = await deps.pins.remove(user.id, gameId);
+      if (!removed) throw new AppError("Not pinned", 404, "not_pinned");
+      return deps.pins.list(user.id);
     },
   };
 }

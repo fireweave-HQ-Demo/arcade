@@ -71,4 +71,13 @@ export async function migrate() {
   await sql`CREATE INDEX IF NOT EXISTS idx_matches_user_game ON matches(user_id, game_id, status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_matches_game ON matches(game_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_matches_user_finished ON matches(user_id, status, id DESC)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS pins (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      game_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, game_id)
+    )
+  `;
 }
