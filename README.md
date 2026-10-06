@@ -62,7 +62,7 @@ Warm deploys target **&lt; 30s** Actions wall-clock.
 
 | Item | Value |
 |------|--------|
-| Host | `54.205.169.117` |
+| Host | `54.147.34.187` |
 | User | `ubuntu` |
 | App dir | `~/temp-battle` |
 | URL | http://54.205.169.117 |
