@@ -24,6 +24,8 @@ services:
       dockerfile: docker/Dockerfile
       args:
         PORT: "80"
+        PUBLIC_FW_API_URL: ${PUBLIC_FW_API_URL:-https://app-server.fireweave.ai}
+        PUBLIC_FW_PROJECT_API_KEY: ${PUBLIC_FW_PROJECT_API_KEY}
     image: arcade-app:prod
     ports:
       - "80:80"

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, type GameInfo } from "./api";
 import { GameCover } from "./games/covers";
 import { CATEGORIES, inCategory, metaFor, type GameCategory } from "./games/meta";
+import { emitClientAction } from "./observability/openobserve";
 
 const HOT_IDS = ["connectfour", "tictactoe", "gomoku", "reversi", "memory", "nim"];
 const QUICK_IDS = ["tictactoe", "popout", "wildttt", "subtractsquare", "memory", "miserettt"];
@@ -65,7 +66,16 @@ export function LobbyPage() {
   useEffect(() => {
     void api
       .games()
-      .then((r) => setGames(r.games))
+      .then((r) => {
+        setGames(r.games);
+        void emitClientAction({
+          event: "web.lobby.view",
+          metrics: [
+            { name: "arcade_web_lobby_views_total", value: 1, labels: { surface: "web" } },
+            { name: "arcade_web_events", value: 1, labels: { event: "lobby_view", result: "ok" } },
+          ],
+        });
+      })
       .catch((e: Error) => setError(e.message));
   }, []);
 

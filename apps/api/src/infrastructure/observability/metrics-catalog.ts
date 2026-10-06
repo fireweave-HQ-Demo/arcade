@@ -111,6 +111,20 @@ export const METRICS_CATALOG: MetricDef[] = [
     source: "openobserve postJson failures",
   },
   {
+    name: "arcade_web_events",
+    type: "counter",
+    description: "Web client product events (login, lobby, …)",
+    defaultLabels: { event: "lobby_view", result: "ok", surface: "web" },
+    source: "POST /api/client-telemetry (web)",
+  },
+  {
+    name: "arcade_web_lobby_views_total",
+    type: "counter",
+    description: "Lobby page loads from the web client",
+    defaultLabels: { surface: "web" },
+    source: "LobbyPage useEffect",
+  },
+  {
     name: "arcade_verify",
     type: "counter",
     description: "Observability probe / verify injections",

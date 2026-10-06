@@ -9,6 +9,9 @@ This repo is FireWeave **rollout-ready** ("promote, not wrap"). Read this before
 | API harness | `apps/api/src/fireweave/fw-harness.ts` |
 | API providers | `apps/api/src/fireweave/fw-providers.ts` |
 | API tracker (`FW_STAMPS`) | `apps/api/src/fireweave/fw-tracker.ts` |
+| Web harness | `apps/web/src/fireweave/fw-harness.ts` |
+| Web providers | `apps/web/src/fireweave/fw-providers.ts` |
+| Web tracker (`FW_STAMPS`) | `apps/web/src/fireweave/fw-tracker.ts` |
 | Provider notes | `.fireweave/PROVIDERS.md` |
 | Env contract (names only) | `fireweave.md` |
 | Build gate | `.fireweave/hooks/rollout-build-gate.sh` |
@@ -17,7 +20,7 @@ This repo is FireWeave **rollout-ready** ("promote, not wrap"). Read this before
 
 Gitignored runtime paths: `.fireweave/.cache/` (projection — rebuild with `fw sync`), `.fireweave/.queue/` (unsynced author state — **never delete to clear a warning**), `.fireweave/.lock`, `.fireweave/local.json`.
 
-Surfaces this init wired: **ts-server** only (`apps/api`). Web was deferred (no metrics client).
+Surfaces wired: **ts-server** (`apps/api`) and **web** (`apps/web`).
 
 ## How to emit a metric — ts-server (`apps/api`)
 
@@ -78,6 +81,49 @@ await deps.obs.emitAction({
 
 Full catalog: `apps/api/src/infrastructure/observability/metrics-catalog.ts`.
 
+## How to emit a metric — web (`apps/web`)
+
+**Client:** browser helper that POSTs to the API OpenObserve proxy (never embeds OpenObserve secrets). Recorded as `metricsClient: "openobserve"`.
+
+**Import:**
+
+```ts
+import { emitClientAction, metric } from "./observability/openobserve";
+```
+
+**Call shapes:**
+
+```ts
+await metric("arcade_web_lobby_views_total", 1, { surface: "web" });
+await emitClientAction({
+  event: "web.auth.login",
+  user: next.username,
+  metrics: [{ name: "arcade_web_events", value: 1, labels: { event: "login", result: "ok" } }],
+});
+```
+
+**Where the instrument comes from:** module helpers in `apps/web/src/observability/openobserve.ts` → `POST /api/client-telemetry` → server `emitAction`.
+
+**Real example** (`apps/web/src/Lobby.tsx`):
+
+```ts
+void emitClientAction({
+  event: "web.lobby.view",
+  metrics: [
+    { name: "arcade_web_lobby_views_total", value: 1, labels: { surface: "web" } },
+  ],
+});
+```
+
+**Label convention:** metric names prefixed `arcade_web_`; always include `surface: "web"` when useful. Cohort for flag ramps is `syncFireweaveUser(user.id)` / `fw.controlPoints.getBooleanValue(key, false)` (sync reads after prefetch).
+
+### What this surface already emits
+
+| Metric | Type | Where | Measures |
+| --- | --- | --- | --- |
+| `arcade_web_events` | counter | auth login/register/logout, lobby | Web product events |
+| `arcade_web_lobby_views_total` | counter | `LobbyPage` | Lobby page loads |
+
 ## Does this task qualify? — classify BEFORE step 1
 
 | Class | Run the package? |
@@ -112,7 +158,8 @@ When unclear, treat as **change**.
 
 | Surface | Contract |
 | --- | --- |
-| **Server (`apps/api`)** | After successful login in `apps/api/src/application/auth.ts`, call `registerFwTarget(user.id, { properties: { role, username } })` unconditionally. Every `getBooleanValue` passes `{ targetingKey: user.id }` (or `resolveInstanceTargetingKey()` only when the server is the subject). |
+| **Server (`apps/api`)** | After successful login in `apps/api/src/application/auth.ts`, call `registerFwTarget(user.id, …)` unconditionally. Every `getBooleanValue` passes `{ targetingKey: user.id }` (or `resolveInstanceTargetingKey()` only when the server is the subject). |
+| **Web (`apps/web`)** | After auth / session restore in `apps/web/src/auth.tsx`, call `syncFireweaveUser(String(user.id), …)`. On logout / 401 call `clearFireweaveUser()` so the next visitor does not inherit the previous bucket. |
 
 ## Manifest contract
 

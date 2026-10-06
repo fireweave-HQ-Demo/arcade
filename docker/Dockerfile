@@ -11,6 +11,10 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
 FROM deps AS build
+ARG PUBLIC_FW_API_URL=https://app-server.fireweave.ai
+ARG PUBLIC_FW_PROJECT_API_KEY=
+ENV PUBLIC_FW_API_URL=$PUBLIC_FW_API_URL \
+    PUBLIC_FW_PROJECT_API_KEY=$PUBLIC_FW_PROJECT_API_KEY
 COPY packages ./packages
 COPY apps ./apps
 RUN bun run --filter '@arcade/web' build

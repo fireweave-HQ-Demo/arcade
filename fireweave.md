@@ -36,6 +36,12 @@ individually, which is only useful if the keys are distinguishable.
 | --- | --- | --- |
 | **Server** (ts-server · python · java · swift) | `FW_API_URL` | `https://app-server.fireweave.ai` |
 | | `FW_PROJECT_API_KEY` | from **Project API keys** |
+| **Web** (browser bundle) | `PUBLIC_FW_API_URL` | `https://app-server.fireweave.ai` |
+| | `PUBLIC_FW_PROJECT_API_KEY` | from **Browser keys** |
+
+> **Vite projects:** Vite only exposes variables prefixed `VITE_`. Use
+> `VITE_FW_API_URL` and `VITE_FW_PROJECT_API_KEY`; the harness reads either
+> prefix. Every other bundler uses `PUBLIC_`.
 
 Set them wherever this repo's deployments already get their environment —
 GitHub Actions repository secrets, your VM's process environment, the

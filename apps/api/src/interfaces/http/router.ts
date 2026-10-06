@@ -6,6 +6,7 @@ import type { ScoreboardUseCases } from "../../application/scoreboard";
 import type { AdminUseCases } from "../../application/admin";
 import type { TraceCtx } from "../../domain/ports";
 import {
+  emitAction,
   finishRequest,
   listStreams,
   log,
@@ -73,6 +74,47 @@ export function createHandler(services: AppServices) {
         const type = url.searchParams.get("type") as "logs" | "metrics" | "traces" | null;
         const result = await listStreams(type ?? undefined);
         return respond(json(result.data ?? result));
+      }
+
+      // Browser telemetry proxy — keeps OpenObserve credentials server-side.
+      if (path === "/api/client-telemetry" && req.method === "POST") {
+        const body = (await req.json().catch(() => ({}))) as {
+          event?: string;
+          user?: string;
+          logLevel?: "debug" | "info" | "warn" | "error";
+          logFields?: Record<string, unknown>;
+          metrics?: Array<{
+            name: string;
+            value?: number;
+            labels?: Record<string, string>;
+            type?: "counter" | "gauge" | "histogram";
+          }>;
+        };
+        const event = typeof body.event === "string" ? body.event.slice(0, 128) : "web.event";
+        const metrics = Array.isArray(body.metrics)
+          ? body.metrics
+              .filter((m) => m && typeof m.name === "string" && m.name.startsWith("arcade_"))
+              .slice(0, 20)
+              .map((m) => ({
+                name: m.name.slice(0, 128),
+                value: typeof m.value === "number" ? m.value : 1,
+                labels: { surface: "web", ...(m.labels ?? {}) },
+                type: m.type ?? ("counter" as const),
+              }))
+          : [];
+        await emitAction({
+          event,
+          user: body.user,
+          logLevel: body.logLevel ?? "info",
+          logFields: { ...(body.logFields ?? {}), surface: "web" },
+          metrics:
+            metrics.length > 0
+              ? metrics
+              : [{ name: "arcade_web_events", value: 1, labels: { event, surface: "web" } }],
+          traceId: trace?.traceId,
+          parentSpanId: trace?.parentSpanId,
+        });
+        return respond(json({ ok: true }));
       }
 
       if (path === "/api/auth/register" && req.method === "POST") {
