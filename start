@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+docker compose up -d --build
+echo "temp-battle running at http://localhost:3000"

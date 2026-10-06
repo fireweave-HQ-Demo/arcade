@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tictac}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tictac}
+      POSTGRES_DB: ${POSTGRES_DB:-tictac}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tictac}"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://tictac:tictac@db:5432/tictac}
+      SESSION_SECRET: ${SESSION_SECRET:-temp-battle-dev-secret}
+      PORT: ${PORT:-3000}
+      OPENOBSERVE_URL: ${OPENOBSERVE_URL}
+      OPENOBSERVE_USER: ${OPENOBSERVE_USER}
+      OPENOBSERVE_PASSWORD: ${OPENOBSERVE_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
