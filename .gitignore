@@ -10,3 +10,4 @@ dist
 .fireweave/.cache/
 .fireweave/.lock
 .fireweave/.queue/
+tmp/
