@@ -60,7 +60,7 @@ jobs:
             cd "$APP_DIR"
             git remote set-url origin https://github.com/fireweave-HQ-Demo/arcade.git
             # Explicit refspec so shallow clones create origin/<branch> (needed when switching main ↔ fw-base).
-            git fetch --depth=1 origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+            git fetch --depth=1 origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
             git checkout -B "$BRANCH" "origin/${BRANCH}"
             git reset --hard "origin/${BRANCH}"
             echo "deploying branch=$BRANCH sha=$(git rev-parse --short HEAD)"
