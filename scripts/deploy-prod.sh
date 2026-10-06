@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fast EC2 prod deploy. Repo should already be on origin/main (workflow fetches first).
+# Fast EC2 prod deploy. Repo should already match the triggering branch (main or fw-base).
 # Target: < 30s Actions wall-clock when image layers / fingerprint match.
 set -euo pipefail
 

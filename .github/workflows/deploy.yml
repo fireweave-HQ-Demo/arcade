@@ -17,7 +17,6 @@ jobs:
       - name: Deploy prod
         uses: appleboy/ssh-action@v1.2.2
         env:
-          DEPLOY_BRANCH: ${{ github.ref_name }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
@@ -35,10 +34,15 @@ jobs:
           port: 22
           timeout: 20s
           command_timeout: 2m
-          envs: DEPLOY_BRANCH,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM
+          envs: POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM
           script: |
             set -euo pipefail
-            BRANCH="${DEPLOY_BRANCH:-main}"
+            # Branch that triggered this workflow (main or fw-base) — must match prod checkout.
+            BRANCH="${{ github.ref_name }}"
+            case "$BRANCH" in
+              main|fw-base) ;;
+              *) echo "refusing to deploy unexpected branch: $BRANCH" >&2; exit 1 ;;
+            esac
             APP_DIR="$HOME/arcade"
             if [ ! -d "$APP_DIR/.git" ]; then
               # migrate from legacy temp-battle checkout if present
@@ -54,5 +58,7 @@ jobs:
             git fetch --depth=1 origin "$BRANCH"
             git checkout -B "$BRANCH" "origin/$BRANCH"
             git reset --hard "origin/$BRANCH"
+            echo "deploying branch=$BRANCH sha=$(git rev-parse --short HEAD)"
+            echo "$BRANCH" > .deploy-branch
             chmod +x scripts/deploy-prod.sh scripts/prod-start.sh scripts/prod-stop.sh scripts/dev.sh scripts/dev-stop.sh
             ./scripts/deploy-prod.sh
