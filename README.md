@@ -27,6 +27,22 @@ HttpOnly cookie sessions (30 days) stored in Postgres — persistent login acros
 
 Copy `.env.example` → `.env` (a working `.env` is already present for local use).
 
-## Deploy notes
+## Deploy (EC2)
 
-Images are alpine + Bun; app is a single process serving API and built assets. Cold `./start` builds layers once; subsequent deploys reuse cache and should stay well under 15s when the image is already on the host (EC2 workflow TBD).
+Pushes / merges to `main` trigger [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+
+1. SSH to EC2
+2. `git reset --hard origin/main`
+3. Write `.env` from GitHub secrets
+4. `docker compose up -d --build` (warm cache → usually a few seconds)
+
+| Item | Value |
+|------|--------|
+| Host | `54.205.169.117` |
+| User | `ubuntu` |
+| App dir | `~/temp-battle` |
+| URL | http://54.205.169.117:3000 |
+
+GitHub secrets: `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, plus all app env vars from `.env.example`.
+
+Manual redeploy: Actions → **Deploy to EC2** → Run workflow.
