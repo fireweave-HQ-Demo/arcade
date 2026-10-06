@@ -32,6 +32,7 @@ export function createGameUseCases(deps: {
         id: e.id,
         name: e.name,
         description: e.description,
+        rules: e.rules,
       }));
     },
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Local hot-reload: Postgres in Docker + host Bun --watch + Vite HMR
 set -euo pipefail
-cd "$(dirname "$0")"
-ROOT="$PWD"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 
 # load local secrets (OpenObserve, Postgres, …)
 if [[ -f "$ROOT/.env" ]]; then
@@ -13,10 +13,10 @@ if [[ -f "$ROOT/.env" ]]; then
 fi
 
 docker stop temp-battle-app-1 arcade-app-1 2>/dev/null || true
-docker compose -f docker-compose.dev.yml down >/dev/null 2>&1 || true
-docker compose -f docker-compose.yml --profile docker stop app >/dev/null 2>&1 || true
+docker compose -f docker/compose.dev.yml down >/dev/null 2>&1 || true
+docker compose -f docker/compose.yml --profile docker stop app >/dev/null 2>&1 || true
 
-docker compose -f docker-compose.yml up -d db
+docker compose -f docker/compose.yml up -d db
 
 export DATABASE_URL="${DATABASE_URL:-postgres://tictac:tictac@127.0.0.1:5432/tictac}"
 if [[ "$DATABASE_URL" == *"@db:"* ]]; then
@@ -28,7 +28,7 @@ export API_PROXY="${API_PROXY:-http://127.0.0.1:3000}"
 
 echo "waiting for postgres…"
 for _ in $(seq 1 40); do
-  if docker compose -f docker-compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-tictac}" >/dev/null 2>&1; then
+  if docker compose -f docker/compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-tictac}" >/dev/null 2>&1; then
     break
   fi
   sleep 0.25

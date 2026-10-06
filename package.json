@@ -3,12 +3,13 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "./start",
+    "dev": "./scripts/dev.sh",
     "build": "bun run --filter '@arcade/web' build",
-    "start": "./start",
-    "stop": "./stop",
-    "start:docker": "docker compose --profile docker up -d --build",
-    "start:prod": "./start.prod",
-    "stop:prod": "./stop.prod"
+    "start": "./scripts/dev.sh",
+    "stop": "./scripts/dev-stop.sh",
+    "start:docker": "docker compose -f docker/compose.yml --profile docker up -d --build",
+    "stop:docker": "docker compose -f docker/compose.yml --profile docker down",
+    "start:prod": "./scripts/prod-start.sh",
+    "stop:prod": "./scripts/prod-stop.sh"
   }
 }

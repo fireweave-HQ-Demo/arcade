@@ -51,5 +51,5 @@ jobs:
             git remote set-url origin https://github.com/fireweave-HQ-Demo/arcade.git
             git fetch --depth=1 origin main
             git reset --hard origin/main
-            chmod +x scripts/deploy-prod.sh start.prod stop.prod start stop
+            chmod +x scripts/deploy-prod.sh scripts/prod-start.sh scripts/prod-stop.sh scripts/dev.sh scripts/dev-stop.sh
             ./scripts/deploy-prod.sh

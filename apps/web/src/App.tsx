@@ -13,7 +13,9 @@ import {
 import { api, type GameInfo, type Match, type Scoreboard } from "./api";
 import { AdminPage } from "./Admin";
 import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from "./auth";
-import { GameBoard } from "./Boards";
+import { GameBoard } from "./games/GameBoard";
+import { ArcadeMark, GameMark } from "./games/logos";
+import { OutcomeFX } from "./games/outcome";
 
 type LoginMode = "player" | "admin";
 
@@ -265,11 +267,15 @@ function PlayPage() {
     match?.winner === "human_win" ? "win" : match?.winner === "bot_win" ? "lose" : "";
 
   return (
-    <section className="panel">
-      <div className="topbar">
-        <div>
+    <section className={`panel play-panel ${statusClass}`}>
+      <div className="play-bar">
+        <GameMark id={game.id} />
+        <div className="play-title">
           <div className="status">{game.name}</div>
           <p className="hint">{game.description}</p>
+        </div>
+        <div key={statusText} className={`status turn pill ${statusClass}`}>
+          {statusText}
         </div>
         <div className="row">
           <Link className="btn secondary" to="/">
@@ -278,12 +284,19 @@ function PlayPage() {
           <button className="btn mint" disabled={busy} onClick={() => void fresh()}>
             new game
           </button>
+          <details className="rules-pop">
+            <summary>rules</summary>
+            <p>{game.rules}</p>
+          </details>
         </div>
       </div>
-      <div style={{ marginTop: "1.25rem" }} className={`status ${statusClass}`}>
-        {statusText}
-      </div>
-      <div style={{ marginTop: "1rem" }}>
+      <div
+        className="play-fit"
+        data-game={game.id}
+        data-result={statusClass}
+        key={match?.winner ?? "playing"}
+      >
+        <OutcomeFX gameId={game.id} result={statusClass === "win" || statusClass === "lose" ? statusClass : ""} />
         {match ? <GameBoard match={match} busy={busy} onMove={move} /> : null}
       </div>
       {error ? <p className="error">{error}</p> : null}
@@ -315,8 +328,9 @@ function LobbyPage() {
       <div className="status">choose a game</div>
       <p className="hint">same account · same bot · scores roll up to one board</p>
       <div className="grid-cards">
-        {games.map((g) => (
-          <Link key={g.id} className="game-card" to={`/play/${g.id}`}>
+        {games.map((g, i) => (
+          <Link key={g.id} className="game-card" to={`/play/${g.id}`} style={{ animationDelay: `${i * 40}ms` }}>
+            <GameMark id={g.id} />
             <h3>{g.name}</h3>
             <p>{g.description}</p>
             <span className="badge">vs arcade bot</span>
@@ -509,21 +523,29 @@ function AppChrome() {
   const { user } = useAuth();
   const location = useLocation();
   const adminPortal = user?.role === "admin" && location.pathname.startsWith("/admin");
+  const playing = location.pathname.startsWith("/play/");
 
   return (
-    <main className={`app ${adminPortal ? "app-admin" : ""}`}>
-      <h1 className="brand">
-        <Link to={user?.role === "admin" ? "/admin" : "/"} className="brand-link">
-          <span>arcade</span>
-          {adminPortal ? <em className="brand-sub"> admin</em> : null}
+    <main className={`app ${adminPortal ? "app-admin" : ""} ${playing ? "app-play" : ""}`}>
+      <header className="mast">
+        <Link to={user?.role === "admin" ? "/admin" : "/"} className="logo">
+          <ArcadeMark />
+          <span>
+            arcade
+            {adminPortal ? <em> admin</em> : null}
+          </span>
         </Link>
-      </h1>
-      <p className="tagline">
-        {adminPortal
-          ? "admin portal — game insights, top players, and OpenObserve metric injection."
-          : "multi-game centre — human vs arcade bot, shared login, one scoreboard, full traces."}
-      </p>
-      <AppRoutes />
+        {playing ? null : (
+          <p className="tagline">
+            {adminPortal
+              ? "insights, top players, and metric injection"
+              : "human vs arcade bot · one login · one scoreboard"}
+          </p>
+        )}
+      </header>
+      <div className="stage">
+        <AppRoutes />
+      </div>
     </main>
   );
 }

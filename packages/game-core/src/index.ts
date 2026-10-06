@@ -11,7 +11,10 @@ export type MoveResult<TState> = {
 export interface GameEngine<TState = unknown, TMove = unknown> {
   id: string;
   name: string;
+  /** One-line lobby summary */
   description: string;
+  /** How to play, shown on the board */
+  rules: string;
   newState(): TState;
   applyHumanMove(state: TState, move: TMove): MoveResult<TState>;
   applyBotMove(state: TState): TState;
