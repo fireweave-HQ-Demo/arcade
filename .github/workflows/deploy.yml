@@ -26,12 +26,14 @@ jobs:
           OPENOBSERVE_URL: ${{ secrets.OPENOBSERVE_URL }}
           OPENOBSERVE_USER: ${{ secrets.OPENOBSERVE_USER }}
           OPENOBSERVE_PASSWORD: ${{ secrets.OPENOBSERVE_PASSWORD }}
+          OPENOBSERVE_LOG_STREAM: ${{ secrets.OPENOBSERVE_LOG_STREAM }}
+          OPENOBSERVE_TRACE_STREAM: ${{ secrets.OPENOBSERVE_TRACE_STREAM }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 5m
-          envs: POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,PORT,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD
+          envs: POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,PORT,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM
           script: |
             set -euo pipefail
             APP_DIR="$HOME/temp-battle"
@@ -55,6 +57,8 @@ jobs:
             OPENOBSERVE_URL=${OPENOBSERVE_URL}
             OPENOBSERVE_USER=${OPENOBSERVE_USER}
             OPENOBSERVE_PASSWORD=${OPENOBSERVE_PASSWORD}
+            OPENOBSERVE_LOG_STREAM=${OPENOBSERVE_LOG_STREAM:-temp_battle_logs}
+            OPENOBSERVE_TRACE_STREAM=${OPENOBSERVE_TRACE_STREAM:-temp_battle_traces}
             EOF
 
             if ! command -v docker >/dev/null 2>&1; then
