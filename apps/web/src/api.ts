@@ -106,6 +106,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+export type HistoryMatch = {
+  id: number;
+  gameId: string;
+  name: string;
+  winner: Match["winner"];
+  createdAt: string;
+};
+export type Replay = {
+  id: number;
+  gameId: string;
+  name: string;
+  winner: Match["winner"];
+  createdAt: string;
+  frames: Array<{ index: number; actor: "human" | "bot" | "system"; state: unknown }>;
+};
+
 export const api = {
   me: () => request<{ user: User | null }>("/api/auth/me"),
   login: (username: string, password: string) =>
@@ -129,5 +145,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   scoreboard: () => request<Scoreboard>("/api/scoreboard"),
+  history: () => request<{ matches: HistoryMatch[] }>("/api/matches"),
+  replay: (matchId: number) => request<Replay>(`/api/matches/${matchId}/replay`),
   adminInsights: () => request<AdminInsights>("/api/admin/insights"),
 };

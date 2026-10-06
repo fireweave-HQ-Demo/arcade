@@ -15,6 +15,7 @@ import { AdminPage } from "./Admin";
 import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from "./auth";
 import { fw } from "./fireweave/fw-harness";
 import { metric as record } from "./observability/openobserve";
+import { HistoryPage, ReplayPage } from "./History";
 import { LobbyPage } from "./Lobby";
 import { GameBoard } from "./games/GameBoard";
 import { ArcadeMark, GameMark } from "./games/logos";
@@ -24,6 +25,7 @@ type LoginMode = "player" | "admin";
 
 const HeaderArrangementContext = createContext(false);
 const ProfileMenuContext = createContext(false);
+const MatchReplayContext = createContext(false);
 
 function recordHeaderNav(target: string) {
   void record("arcade_web_header_nav_clicks_total", 1, {
@@ -543,6 +545,7 @@ function Shell() {
   const gamesActive =
     location.pathname === "/" || location.pathname.startsWith("/play/");
   const profileMenu = useContext(ProfileMenuContext);
+  const matchReplay = useContext(MatchReplayContext);
 
   if (unifiedHeader) return <Outlet />;
 
@@ -593,6 +596,14 @@ function Shell() {
           >
             scoreboard
           </NavLink>
+          {matchReplay ? (
+            <NavLink
+              to="/history"
+              className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
+            >
+              history
+            </NavLink>
+          ) : null}
         </nav>
       </div>
       <Outlet />
@@ -614,6 +625,8 @@ function AppRoutes() {
         <Route index element={<LobbyPage />} />
         <Route path="play/:gameId" element={<PlayPage />} />
         <Route path="scoreboard" element={<ScoreboardPage />} />
+        <Route path="history" element={<HistoryPage />} />
+        <Route path="history/:matchId" element={<ReplayPage />} />
         <Route
           path="admin"
           element={
@@ -632,6 +645,7 @@ function UnifiedHeader() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const profileMenu = useContext(ProfileMenuContext);
+  const matchReplay = useContext(MatchReplayContext);
   const isAdmin = user?.role === "admin";
   const onAdmin = location.pathname.startsWith("/admin");
   const adminPortal = Boolean(isAdmin && onAdmin);
@@ -686,6 +700,15 @@ function UnifiedHeader() {
         >
           scoreboard
         </NavLink>
+        {matchReplay ? (
+          <NavLink
+            to="/history"
+            className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
+            onClick={() => recordHeaderNav("history")}
+          >
+            history
+          </NavLink>
+        ) : null}
       </nav>
       <div className="topbar-actions">
         {profileMenu ? null : (
@@ -721,9 +744,12 @@ function AppChrome() {
   const profileMenu = fw.controlPoints.getBooleanValue("profile-avatar-menu", false);
   // @fireweave-controlpoint header-arrangement
   const headerArrangement = fw.controlPoints.getBooleanValue("header-arrangement", false);
+  // @fireweave-controlpoint match-replay
+  const matchReplay = fw.controlPoints.getBooleanValue("match-replay", false);
   const unified = headerArrangement && Boolean(user);
 
   return (
+    <MatchReplayContext.Provider value={matchReplay}>
     <ProfileMenuContext.Provider value={profileMenu}>
       <HeaderArrangementContext.Provider value={unified}>
       <main
@@ -763,6 +789,7 @@ function AppChrome() {
       </main>
       </HeaderArrangementContext.Provider>
     </ProfileMenuContext.Provider>
+    </MatchReplayContext.Provider>
   );
 }
 

@@ -202,6 +202,35 @@ export const ACTIONS_CATALOG: ActionDef[] = [
     source: "games.applyMove",
   },
   {
+    event: "match.history",
+    description: "Finished-match history listed",
+    metrics: [
+      {
+        name: "arcade_match_history_views_total",
+        type: "counter",
+        defaultLabels: { result: "ok" },
+      },
+    ],
+    source: "history.listHistory",
+  },
+  {
+    event: "match.replay",
+    description: "Stored match replay loaded or rejected",
+    metrics: [
+      {
+        name: "arcade_replay_loads_total",
+        type: "counter",
+        defaultLabels: { result: "ok", game: "tictactoe" },
+      },
+      {
+        name: "arcade_replay_load_ms",
+        type: "histogram",
+        defaultLabels: { result: "ok", game: "tictactoe" },
+      },
+    ],
+    source: "history.replay",
+  },
+  {
     event: "admin.insights",
     description: "Admin insights dashboard loaded",
     metrics: [

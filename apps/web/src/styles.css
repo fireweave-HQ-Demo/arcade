@@ -820,6 +820,31 @@ table.data th { font-size: 0.8rem; opacity: 0.7; }
 }
 
 .auth-modes { margin-top: 0.25rem; }
+
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.history-list a {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+.history-list a span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.history-list .game-mark { width: 28px; height: 28px; }
 .admin-shell { display: grid; gap: 0; }
 
 @media (max-width: 640px) {
@@ -844,4 +869,5 @@ table.data th { font-size: 0.8rem; opacity: 0.7; }
   .mast-unified .avatar-btn { width: 2rem; height: 2rem; font-size: 0.9rem; }
   .tagline { display: none; }
   .play-bar .hint { display: none; }
+  .history-list a { grid-template-columns: 1fr; gap: 0.25rem; }
 }

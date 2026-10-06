@@ -201,7 +201,7 @@ export async function makeDevProvider(): Promise<FireweaveClient> {
   await loadInstanceId();
   fwClient = await initFireweave({
     mode: 'local',
-    local: { controlPoints: {} },
+    local: { controlPoints: { "match-replay": true } },
   });
   return fwClient;
 }

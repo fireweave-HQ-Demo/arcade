@@ -2,6 +2,7 @@ import { createAuthUseCases } from "./application/auth";
 import { createGameUseCases } from "./application/games";
 import { createScoreboardUseCases } from "./application/scoreboard";
 import { createAdminUseCases } from "./application/admin";
+import { createHistoryUseCases } from "./application/history";
 import { migrate, waitForDb } from "./infrastructure/db/client";
 import { userRepo } from "./infrastructure/db/user-repo";
 import { sessionRepo } from "./infrastructure/db/session-repo";
@@ -29,5 +30,6 @@ export async function getServices(): Promise<AppServices> {
     games: createGameUseCases({ matches: matchRepo, engines, obs: observability }),
     scoreboard: createScoreboardUseCases({ matches: matchRepo, obs: observability }),
     admin: createAdminUseCases({ matches: matchRepo, engines, obs: observability }),
+    history: createHistoryUseCases({ matches: matchRepo, engines, obs: observability }),
   };
 }

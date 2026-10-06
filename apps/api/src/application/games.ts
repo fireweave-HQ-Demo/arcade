@@ -5,6 +5,7 @@ import type {
   ObservabilityPort,
   TraceCtx,
 } from "../domain/ports";
+import { fw } from "../fireweave/fw-harness";
 
 /** In-process active match gauges + start clocks for duration histograms. */
 const activeByGame = new Map<string, number>();
@@ -59,6 +60,10 @@ export function createGameUseCases(deps: {
     },
 
     async getOrCreateMatch(user: PublicUser, gameId: string, trace?: TraceCtx) {
+      // @fireweave-controlpoint match-replay
+      const snap = await fw.controlPoints.getBooleanValue("match-replay", false, {
+        targetingKey: String(user.id),
+      });
       const engine = (() => {
         try {
           return deps.engines.require(gameId);
@@ -75,6 +80,7 @@ export function createGameUseCases(deps: {
           actor: "system",
           move: { event: "start" },
           traceId: trace?.traceId,
+          state: snap ? match.state : undefined,
         });
         matchStartedAt.set(match.id, Date.now());
         const active = bumpActive(gameId, 1);
@@ -117,6 +123,10 @@ export function createGameUseCases(deps: {
       move: unknown,
       trace?: TraceCtx,
     ): Promise<MatchDto> {
+      // @fireweave-controlpoint match-replay
+      const snap = await fw.controlPoints.getBooleanValue("match-replay", false, {
+        targetingKey: String(user.id),
+      });
       const engine = (() => {
         try {
           return deps.engines.require(gameId);
@@ -152,6 +162,7 @@ export function createGameUseCases(deps: {
         actor: "human",
         move,
         traceId: trace?.traceId,
+        state: snap ? state : undefined,
       });
       await deps.obs.emitAction({
         event: "match.move",
@@ -176,6 +187,7 @@ export function createGameUseCases(deps: {
           actor: "bot",
           move: { auto: true },
           traceId: trace?.traceId,
+          state: snap ? state : undefined,
         });
         await deps.obs.emitAction({
           event: "match.move",
