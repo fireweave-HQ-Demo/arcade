@@ -2,4 +2,4 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 docker compose -f docker-compose.yml up -d --build
-echo "temp-battle (dev) → http://localhost:3000"
+echo "arcade (dev) → http://localhost:3000"

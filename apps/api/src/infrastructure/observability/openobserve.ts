@@ -1,17 +1,17 @@
 /**
  * OpenObserve instrumentation: logs, metrics, traces + fetch-back verification.
  * Streams:
- *   logs    → temp_battle_logs
- *   metrics → temp_battle_* (Prometheus-style via ingest/metrics/_json)
- *   traces  → temp_battle_traces (OTLP/HTTP JSON)
+ *   logs    → arcade_logs
+ *   metrics → arcade_* (Prometheus-style via ingest/metrics/_json)
+ *   traces  → arcade_traces (OTLP/HTTP JSON)
  */
 
 const BASE = (process.env.OPENOBSERVE_URL ?? "").replace(/\/$/, "");
 const USER = process.env.OPENOBSERVE_USER ?? "";
 const PASS = process.env.OPENOBSERVE_PASSWORD ?? "";
-const SERVICE = "temp-battle";
-const LOG_STREAM = process.env.OPENOBSERVE_LOG_STREAM ?? "temp_battle_logs";
-const TRACE_STREAM = process.env.OPENOBSERVE_TRACE_STREAM ?? "temp_battle_traces";
+const SERVICE = "arcade";
+const LOG_STREAM = process.env.OPENOBSERVE_LOG_STREAM ?? "arcade_logs";
+const TRACE_STREAM = process.env.OPENOBSERVE_TRACE_STREAM ?? "arcade_traces";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -207,7 +207,7 @@ export async function track(event: {
       result: event.result,
       detail: event.detail,
     }),
-    metric("temp_battle_events", 1, {
+    metric("arcade_events", 1, {
       event: event.event,
       ...(event.result ? { result: event.result } : {}),
     }),
@@ -253,12 +253,12 @@ export async function finishRequest(
       },
       { traceId: ctx.traceId, spanId: ctx.spanId },
     ),
-    metric("temp_battle_http_requests", 1, {
+    metric("arcade_http_requests", 1, {
       method: ctx.method,
       route: ctx.route,
       status: String(status),
     }),
-    metric("temp_battle_http_duration_ms", durationMs, {
+    metric("arcade_http_duration_ms", durationMs, {
       method: ctx.method,
       route: ctx.route,
       status: String(status),
@@ -330,7 +330,7 @@ export async function verifyInjection(retries = 8, delayMs = 1500) {
 
   const [logIngest, metricIngest, spanIngest] = await Promise.all([
     log("info", "observability.verify", { probe_id: probeId, signal: "logs" }),
-    metric("temp_battle_verify", 1, { probe_id: probeId, signal: "metrics" }),
+    metric("arcade_verify", 1, { probe_id: probeId, signal: "metrics" }),
     traceSpan({
       name: "observability.verify",
       attributes: {
@@ -354,7 +354,7 @@ export async function verifyInjection(retries = 8, delayMs = 1500) {
       searchLogs(
         `SELECT * FROM ${LOG_STREAM} WHERE probe_id = '${probeId}' ORDER BY _timestamp DESC LIMIT 5`,
       ),
-      queryMetric(`temp_battle_verify{probe_id="${probeId}"}`),
+      queryMetric(`arcade_verify{probe_id="${probeId}"}`),
       searchTraces(
         `SELECT * FROM ${TRACE_STREAM} WHERE probe_id = '${probeId}' OR operation_name = 'observability.verify' ORDER BY _timestamp DESC LIMIT 5`,
       ),
@@ -440,7 +440,7 @@ export async function verifyInjection(retries = 8, delayMs = 1500) {
     },
     streams: {
       logs: LOG_STREAM,
-      metrics: ["temp_battle_http_requests", "temp_battle_http_duration_ms", "temp_battle_events", "temp_battle_verify"],
+      metrics: ["arcade_http_requests", "arcade_http_duration_ms", "arcade_events", "arcade_verify"],
       traces: TRACE_STREAM,
     },
   };
