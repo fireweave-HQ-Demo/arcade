@@ -153,6 +153,20 @@ export const METRICS_CATALOG: MetricDef[] = [
     source: "ProfileMenu scoreboard fetch",
   },
   {
+    name: "arcade_web_header_views_total",
+    type: "counter",
+    description: "Unified header shown with logo, games, and scoreboard on one row",
+    defaultLabels: { surface: "web", event: "view", result: "ok" },
+    source: "UnifiedHeader mount",
+  },
+  {
+    name: "arcade_web_header_nav_clicks_total",
+    type: "counter",
+    description: "Clicks on logo, games, or scoreboard in the unified header",
+    defaultLabels: { surface: "web", event: "nav", result: "ok", target: "games" },
+    source: "UnifiedHeader nav",
+  },
+  {
     name: "arcade_verify",
     type: "counter",
     description: "Observability probe / verify injections",

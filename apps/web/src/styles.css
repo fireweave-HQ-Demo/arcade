@@ -54,6 +54,32 @@ body {
 .mark-line, .mark-smile { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
 .logo:hover .mark { animation: wobble 0.45s ease; }
 
+.mast-unified {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  width: 100%;
+  flex-wrap: nowrap;
+  min-height: 2.6rem;
+}
+.mast-unified .logo,
+.mast-unified .nav,
+.mast-unified .topbar-actions {
+  flex: 0 0 auto;
+}
+.mast-unified .nav {
+  margin-top: 0;
+  flex-wrap: nowrap;
+}
+.mast-unified .nav .btn,
+.mast-unified .topbar-actions .btn {
+  padding: 0.45rem 0.8rem;
+}
+.mast-unified .topbar-actions {
+  margin-left: auto;
+  flex: none;
+}
+
 .game-mark { width: 42px; height: 42px; flex: none; }
 .game-mark-bg { fill: #fff; stroke: var(--line); }
 .game-mark-stroke { fill: none; stroke: var(--teal); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -110,6 +136,7 @@ button, input { font: inherit; }
 }
 .app-play .topbar { margin-top: 0.25rem; }
 .app-play .nav { display: none; }
+.app-play .mast-unified .nav { display: flex; }
 .app-play .tagline { display: none; }
 
 @keyframes rise {
@@ -799,6 +826,22 @@ table.data th { font-size: 0.8rem; opacity: 0.7; }
   .app { padding-top: 0.65rem; }
   .panel { padding: 0.85rem; }
   .mast { align-items: flex-start; }
+  .mast-unified {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    overflow-x: auto;
+  }
+  .mast-unified .logo { font-size: 1.15rem; }
+  .mast-unified .mark { width: 30px; height: 30px; }
+  .mast-unified .nav { flex-wrap: nowrap; }
+  .mast-unified { gap: 0.35rem; }
+  .mast-unified .nav .btn,
+  .mast-unified .topbar-actions .btn {
+    padding: 0.32rem 0.45rem;
+    font-size: 0.82rem;
+  }
+  .mast-unified .avatar-btn { width: 2rem; height: 2rem; font-size: 0.9rem; }
   .tagline { display: none; }
   .play-bar .hint { display: none; }
 }

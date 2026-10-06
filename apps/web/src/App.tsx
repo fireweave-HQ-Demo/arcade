@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Link,
   NavLink,
@@ -21,6 +21,18 @@ import { ArcadeMark, GameMark } from "./games/logos";
 import { OutcomeFX } from "./games/outcome";
 
 type LoginMode = "player" | "admin";
+
+const HeaderArrangementContext = createContext(false);
+const ProfileMenuContext = createContext(false);
+
+function recordHeaderNav(target: string) {
+  void record("arcade_web_header_nav_clicks_total", 1, {
+    surface: "web",
+    event: "nav",
+    result: "ok",
+    target,
+  });
+}
 
 function AuthPage() {
   const { user, loading, login, register, logout } = useAuth();
@@ -522,6 +534,7 @@ function ProfileMenu({ enabled }: { enabled: boolean }) {
 }
 
 function Shell() {
+  const unifiedHeader = useContext(HeaderArrangementContext);
   const { user, logout } = useAuth();
   const location = useLocation();
   const isAdmin = user?.role === "admin";
@@ -529,8 +542,9 @@ function Shell() {
   const onLobby = location.pathname === "/";
   const gamesActive =
     location.pathname === "/" || location.pathname.startsWith("/play/");
-  // @fireweave-controlpoint profile-avatar-menu
-  const profileMenu = fw.controlPoints.getBooleanValue("profile-avatar-menu", false);
+  const profileMenu = useContext(ProfileMenuContext);
+
+  if (unifiedHeader) return <Outlet />;
 
   return (
     <>
@@ -614,44 +628,141 @@ function AppRoutes() {
   );
 }
 
+function UnifiedHeader() {
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  const profileMenu = useContext(ProfileMenuContext);
+  const isAdmin = user?.role === "admin";
+  const onAdmin = location.pathname.startsWith("/admin");
+  const adminPortal = Boolean(isAdmin && onAdmin);
+  const gamesActive =
+    location.pathname === "/" || location.pathname.startsWith("/play/");
+
+  useEffect(() => {
+    void record("arcade_web_header_views_total", 1, {
+      surface: "web",
+      event: "view",
+      result: "ok",
+    });
+  }, []);
+
+  if (!user) return null;
+
+  return (
+    <header className="mast mast-unified">
+      <Link
+        to={isAdmin ? "/admin" : "/"}
+        className="logo"
+        onClick={() => recordHeaderNav("logo")}
+      >
+        <ArcadeMark />
+        <span>
+          arcade
+          {adminPortal ? <em> admin</em> : null}
+        </span>
+      </Link>
+      <nav className="nav" aria-label="primary">
+        {isAdmin ? (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
+            onClick={() => recordHeaderNav("admin")}
+          >
+            admin
+          </NavLink>
+        ) : null}
+        <NavLink
+          to="/"
+          end
+          className={() => `btn secondary ${gamesActive ? "active" : ""}`}
+          onClick={() => recordHeaderNav("games")}
+        >
+          games
+        </NavLink>
+        <NavLink
+          to="/scoreboard"
+          className={({ isActive }) => `btn secondary ${isActive ? "active" : ""}`}
+          onClick={() => recordHeaderNav("scoreboard")}
+        >
+          scoreboard
+        </NavLink>
+      </nav>
+      <div className="topbar-actions">
+        {profileMenu ? null : (
+          <p className="hint">
+            {isAdmin ? (
+              <>
+                admin · <strong>{user.username}</strong>
+                {onAdmin ? " · portal" : ""}
+              </>
+            ) : (
+              <>
+                hi, <strong>{user.username}</strong>
+              </>
+            )}
+          </p>
+        )}
+        <ProfileMenu enabled={profileMenu} />
+        <button className="btn secondary" onClick={() => void logout()}>
+          log out
+        </button>
+      </div>
+    </header>
+  );
+}
+
 function AppChrome() {
   const { user } = useAuth();
   const location = useLocation();
   const adminPortal = user?.role === "admin" && location.pathname.startsWith("/admin");
   const playing = location.pathname.startsWith("/play/");
   const lobby = location.pathname === "/";
+  // @fireweave-controlpoint profile-avatar-menu
+  const profileMenu = fw.controlPoints.getBooleanValue("profile-avatar-menu", false);
+  // @fireweave-controlpoint header-arrangement
+  const headerArrangement = fw.controlPoints.getBooleanValue("header-arrangement", false);
+  const unified = headerArrangement && Boolean(user);
 
   return (
-    <main
-      className={[
-        "app",
-        adminPortal ? "app-admin" : "",
-        playing ? "app-play" : "",
-        lobby ? "app-lobby" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <header className="mast">
-        <Link to={user?.role === "admin" ? "/admin" : "/"} className="logo">
-          <ArcadeMark />
-          <span>
-            arcade
-            {adminPortal ? <em> admin</em> : null}
-          </span>
-        </Link>
-        {playing || lobby ? null : (
-          <p className="tagline">
-            {adminPortal
-              ? "insights, top players, and metric injection"
-              : "human vs arcade bot · one login · one scoreboard"}
-          </p>
+    <ProfileMenuContext.Provider value={profileMenu}>
+      <HeaderArrangementContext.Provider value={unified}>
+      <main
+        className={[
+          "app",
+          adminPortal ? "app-admin" : "",
+          playing ? "app-play" : "",
+          lobby ? "app-lobby" : "",
+          unified ? "app-unified" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {unified ? (
+          <UnifiedHeader />
+        ) : (
+          <header className="mast">
+            <Link to={user?.role === "admin" ? "/admin" : "/"} className="logo">
+              <ArcadeMark />
+              <span>
+                arcade
+                {adminPortal ? <em> admin</em> : null}
+              </span>
+            </Link>
+            {playing || lobby ? null : (
+              <p className="tagline">
+                {adminPortal
+                  ? "insights, top players, and metric injection"
+                  : "human vs arcade bot · one login · one scoreboard"}
+              </p>
+            )}
+          </header>
         )}
-      </header>
-      <div className="stage">
-        <AppRoutes />
-      </div>
-    </main>
+        <div className="stage">
+          <AppRoutes />
+        </div>
+      </main>
+      </HeaderArrangementContext.Provider>
+    </ProfileMenuContext.Provider>
   );
 }
 

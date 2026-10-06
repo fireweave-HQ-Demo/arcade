@@ -123,6 +123,8 @@ void emitClientAction({
 | --- | --- | --- | --- |
 | `arcade_web_events` | counter | auth login/register/logout, lobby | Web product events |
 | `arcade_web_lobby_views_total` | counter | `LobbyPage` | Lobby page loads |
+| `arcade_web_header_views_total` | counter | `UnifiedHeader` | Unified header shown |
+| `arcade_web_header_nav_clicks_total` | counter | `UnifiedHeader` | Header nav clicks |
 
 ## Does this task qualify? — classify BEFORE step 1
 
