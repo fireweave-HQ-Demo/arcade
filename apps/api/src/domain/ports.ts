@@ -37,6 +37,22 @@ export type MatchEvent = {
   actor: "human" | "bot" | "system";
   move: unknown;
   traceId?: string;
+  /** Board after this ply. Present only when match replay snapshots are on. */
+  state?: unknown;
+};
+
+export type FinishedMatchRow = {
+  id: number;
+  gameId: string;
+  status: string;
+  winner: MatchResult;
+  createdAt: string;
+};
+
+export type StoredMatchEvent = {
+  actor: "human" | "bot" | "system";
+  move: unknown;
+  state: unknown | null;
 };
 
 export type TraceCtx = {
@@ -63,6 +79,9 @@ export interface MatchRepository {
   update(match: MatchRecord): Promise<MatchRecord>;
   abandonActive(userId: number, gameId: string): Promise<void>;
   addEvent(event: MatchEvent): Promise<void>;
+  listFinished(userId: number, limit?: number): Promise<FinishedMatchRow[]>;
+  findForUser(userId: number, matchId: number): Promise<(MatchRecord & { createdAt: string }) | null>;
+  listEvents(matchId: number): Promise<StoredMatchEvent[]>;
   scoreboardForUser(userId: number): Promise<ScoreRow[]>;
   globalScoreboard(limit?: number): Promise<
     Array<{ username: string; played: number; wins: number; losses: number; draws: number }>

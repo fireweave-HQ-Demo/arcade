@@ -36,6 +36,9 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Unset NODE_ENV makes the FireWeave harness default to production, so
+      # local control-point seeds (match-replay and the rest) never apply.
+      NODE_ENV: development
       HOST: "0.0.0.0"
       PORT: "3000"
       WEB_DEV_ORIGIN: http://localhost:5173

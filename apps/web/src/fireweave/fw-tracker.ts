@@ -19,4 +19,5 @@
 export const FW_STAMPS: Array<{ stampId: string }> = [
   { stampId: "stmp_01M48AE7FHT2FEKHD88HXWY0V8" },
   { stampId: "stmp_01M48DNJ3KM4EN54TA798ZZ98C" },
+  { stampId: "stmp_01M48Q5RVH35KW30Q1ZA1C4X4M" },
 ];

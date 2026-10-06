@@ -22,6 +22,7 @@ export DATABASE_URL="${DATABASE_URL:-postgres://tictac:tictac@127.0.0.1:5432/tic
 if [[ "$DATABASE_URL" == *"@db:"* ]]; then
   export DATABASE_URL="postgres://${POSTGRES_USER:-tictac}:${POSTGRES_PASSWORD:-tictac}@127.0.0.1:5432/${POSTGRES_DB:-tictac}"
 fi
+export NODE_ENV="${NODE_ENV:-development}"
 export PORT="${PORT:-3000}"
 export HOST="${HOST:-127.0.0.1}"
 export API_PROXY="${API_PROXY:-http://127.0.0.1:3000}"

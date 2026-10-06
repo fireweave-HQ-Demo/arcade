@@ -1,6 +1,17 @@
 import type { MatchResult, MatchStatus, ScoreRow } from "@arcade/shared";
-import type { MatchRecord, MatchRepository } from "../../domain/ports";
+import type {
+  FinishedMatchRow,
+  MatchRecord,
+  MatchRepository,
+  StoredMatchEvent,
+} from "../../domain/ports";
 import { sql } from "./client";
+
+function iso(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
+}
 
 function mapMatch(row: Record<string, unknown>): MatchRecord {
   return {
@@ -54,15 +65,61 @@ export const matchRepo: MatchRepository = {
   },
 
   async addEvent(event) {
+    const state =
+      event.state === undefined || event.state === null
+        ? null
+        : sql.json(event.state as never);
     await sql`
-      INSERT INTO match_events (match_id, actor, move, trace_id)
+      INSERT INTO match_events (match_id, actor, move, trace_id, state)
       VALUES (
         ${event.matchId},
         ${event.actor},
         ${sql.json((event.move ?? null) as never)},
-        ${event.traceId ?? null}
+        ${event.traceId ?? null},
+        ${state}
       )
     `;
+  },
+
+  async listFinished(userId, limit = 40): Promise<FinishedMatchRow[]> {
+    const rows = await sql`
+      SELECT id, game_id AS "gameId", status, winner, created_at AS "createdAt"
+      FROM matches
+      WHERE user_id = ${userId} AND status = 'finished'
+      ORDER BY id DESC
+      LIMIT ${limit}
+    `;
+    return rows.map((row) => ({
+      id: row.id as number,
+      gameId: row.gameId as string,
+      status: row.status as string,
+      winner: (row.winner as MatchResult) ?? null,
+      createdAt: iso(row.createdAt),
+    }));
+  },
+
+  async findForUser(userId, matchId) {
+    const [row] = await sql`
+      SELECT id, user_id, game_id, state, status, winner, created_at AS "createdAt"
+      FROM matches
+      WHERE id = ${matchId} AND user_id = ${userId}
+    `;
+    if (!row) return null;
+    return { ...mapMatch(row), createdAt: iso(row.createdAt) };
+  },
+
+  async listEvents(matchId): Promise<StoredMatchEvent[]> {
+    const rows = await sql`
+      SELECT actor, move, state
+      FROM match_events
+      WHERE match_id = ${matchId}
+      ORDER BY id ASC
+    `;
+    return rows.map((row) => ({
+      actor: row.actor as StoredMatchEvent["actor"],
+      move: row.move,
+      state: row.state ?? null,
+    }));
   },
 
   async scoreboardForUser(userId) {

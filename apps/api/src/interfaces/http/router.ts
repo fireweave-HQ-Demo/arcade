@@ -4,6 +4,7 @@ import type { AuthUseCases } from "../../application/auth";
 import type { GameUseCases } from "../../application/games";
 import type { ScoreboardUseCases } from "../../application/scoreboard";
 import type { AdminUseCases } from "../../application/admin";
+import type { HistoryUseCases } from "../../application/history";
 import type { TraceCtx } from "../../domain/ports";
 import {
   emitAction,
@@ -38,6 +39,7 @@ export type AppServices = {
   games: GameUseCases;
   scoreboard: ScoreboardUseCases;
   admin: AdminUseCases;
+  history: HistoryUseCases;
 };
 
 export function createHandler(services: AppServices) {
@@ -192,6 +194,21 @@ export function createHandler(services: AppServices) {
         const body = await req.json();
         const match = await services.games.applyMove(user, matchMove[1]!, body, trace);
         return respond(json(match), { game: match.gameId });
+      }
+
+      if (path === "/api/matches" && req.method === "GET") {
+        const user = await services.auth.me(sessionTokenFromRequest(req));
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
+        const matches = await services.history.listHistory(user, trace);
+        return respond(json({ matches }));
+      }
+
+      const replayGet = path.match(/^\/api\/matches\/(\d+)\/replay$/);
+      if (replayGet && req.method === "GET") {
+        const user = await services.auth.me(sessionTokenFromRequest(req));
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
+        const replay = await services.history.replay(user, Number(replayGet[1]), trace);
+        return respond(json(replay), { game: replay.gameId });
       }
 
       if (path === "/api/scoreboard" && req.method === "GET") {
