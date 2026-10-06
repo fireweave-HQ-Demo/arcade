@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [main]
+    branches: [main, fw-base]
   workflow_dispatch:
 
 concurrency:
@@ -17,6 +17,7 @@ jobs:
       - name: Deploy prod
         uses: appleboy/ssh-action@v1.2.2
         env:
+          DEPLOY_BRANCH: ${{ github.ref_name }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
@@ -34,9 +35,10 @@ jobs:
           port: 22
           timeout: 20s
           command_timeout: 2m
-          envs: POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM
+          envs: DEPLOY_BRANCH,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,DATABASE_URL,SESSION_SECRET,OPENOBSERVE_URL,OPENOBSERVE_USER,OPENOBSERVE_PASSWORD,OPENOBSERVE_LOG_STREAM,OPENOBSERVE_TRACE_STREAM
           script: |
             set -euo pipefail
+            BRANCH="${DEPLOY_BRANCH:-main}"
             APP_DIR="$HOME/arcade"
             if [ ! -d "$APP_DIR/.git" ]; then
               # migrate from legacy temp-battle checkout if present
@@ -44,12 +46,13 @@ jobs:
                 mv "$HOME/temp-battle" "$APP_DIR"
                 git -C "$APP_DIR" remote set-url origin https://github.com/fireweave-HQ-Demo/arcade.git
               else
-                git clone --depth=1 https://github.com/fireweave-HQ-Demo/arcade.git "$APP_DIR"
+                git clone --depth=1 --branch "$BRANCH" https://github.com/fireweave-HQ-Demo/arcade.git "$APP_DIR"
               fi
             fi
             cd "$APP_DIR"
             git remote set-url origin https://github.com/fireweave-HQ-Demo/arcade.git
-            git fetch --depth=1 origin main
-            git reset --hard origin/main
+            git fetch --depth=1 origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            git reset --hard "origin/$BRANCH"
             chmod +x scripts/deploy-prod.sh scripts/prod-start.sh scripts/prod-stop.sh scripts/dev.sh scripts/dev-stop.sh
             ./scripts/deploy-prod.sh
