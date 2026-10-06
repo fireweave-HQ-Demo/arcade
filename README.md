@@ -8,11 +8,14 @@ Repo: [fireweave-HQ-Demo/arcade](https://github.com/fireweave-HQ-Demo/arcade)
 
 | Env | Start | Stop | URL |
 |-----|-------|------|-----|
-| **dev (hot reload)** | `bun start` | `bun stop` | API http://localhost:3000 · Web http://localhost:5173 |
-| **dev (baked image)** | `bun start:docker` | `bun stop:docker` | http://localhost:3000 (no live sync) |
+| **dev (hot reload)** | `bun start` | `bun stop` | **UI** http://localhost:5173 · API :3000 |
+| **dev (all-in-Docker)** | `bun start:docker` | `bun stop:docker` | **UI** http://localhost:5173 · API :3000 (live sync) |
+| **dev (baked image)** | `bun start:docker:baked` | `bun stop:docker:baked` | http://localhost:3000 (no live sync) |
 | **prod** | `bun start:prod` | `bun stop:prod` | http://localhost:80 |
 
-Local `bun start` runs **Postgres in Docker** and host **Bun `--watch`** (API + `packages/*`) + **Vite HMR** (UI). Edit files under `apps/` or `packages/` and they sync at runtime — no image rebuild. Optional all-in-Docker mounts: `docker compose -f docker/compose.dev.yml up`.
+Local `bun start` runs **Postgres in Docker** and host **Bun `--watch`** (API + `packages/*`) + **Vite HMR** (UI). Edit files under `apps/` or `packages/` and they sync at runtime — no image rebuild.
+
+`bun start:docker` runs API + Web **inside** containers with the repo bind-mounted. API restarts via a short poll (Docker Desktop / macOS often misses inotify); Vite uses polling HMR. Prefer `bun start` on the host when you can — it’s faster.
 
 ## Layout
 
