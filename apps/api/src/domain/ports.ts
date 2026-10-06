@@ -3,6 +3,26 @@ import type { MatchResult, MatchStatus, PublicUser, Role, ScoreRow } from "@arca
 
 export type UserRecord = PublicUser & { passwordHash: string };
 
+export type EmitActionInput = {
+  event: string;
+  traceId?: string;
+  parentSpanId?: string;
+  user?: string;
+  gameId?: string;
+  matchId?: number;
+  metrics?: Array<{
+    name: string;
+    value: number;
+    labels?: Record<string, string>;
+    type?: "counter" | "gauge" | "histogram";
+  }>;
+  logLevel?: "debug" | "info" | "warn" | "error";
+  logFields?: Record<string, unknown>;
+  spanAttributes?: Record<string, string | number | boolean>;
+  statusCode?: 0 | 1 | 2;
+  statusMessage?: string;
+};
+
 export type MatchRecord = {
   id: number;
   userId: number;
@@ -17,6 +37,11 @@ export type MatchEvent = {
   actor: "human" | "bot" | "system";
   move: unknown;
   traceId?: string;
+};
+
+export type TraceCtx = {
+  traceId?: string;
+  parentSpanId?: string;
 };
 
 export interface UserRepository {
@@ -80,11 +105,15 @@ export interface ObservabilityPort {
     name: string,
     value: number,
     labels?: Record<string, string>,
-    type?: "counter" | "gauge",
+    type?: "counter" | "gauge" | "histogram",
   ): Promise<unknown>;
   span(input: {
     name: string;
     traceId?: string;
+    parentSpanId?: string;
     attributes?: Record<string, string | number | boolean>;
+    statusCode?: 0 | 1 | 2;
+    statusMessage?: string;
   }): Promise<{ traceId: string; spanId: string }>;
+  emitAction(input: EmitActionInput): Promise<{ traceId: string; spanId: string }>;
 }

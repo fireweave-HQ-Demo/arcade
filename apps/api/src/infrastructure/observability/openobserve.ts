@@ -6,6 +6,7 @@
  *   traces  → arcade_traces (OTLP/HTTP JSON)
  */
 
+import { findAction } from "./actions-catalog";
 import { metricNames } from "./metrics-catalog";
 
 const BASE = (process.env.OPENOBSERVE_URL ?? "").replace(/\/$/, "");
@@ -43,26 +44,60 @@ function hexId(bytes: number) {
   return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function postJson(path: string, body: unknown, extraHeaders: Record<string, string> = {}) {
-  if (!enabled()) return { ok: false, skipped: true as const, status: 0, data: null };
-  const res = await fetch(`${BASE}${path}`, {
+function signalForPath(path: string): "logs" | "metrics" | "traces" {
+  if (path.includes("/v1/traces") || path.includes("traces")) return "traces";
+  if (path.includes("ingest/metrics")) return "metrics";
+  return "logs";
+}
+
+/** Record export failure without recursing through metric(). */
+function noteExportError(signal: "logs" | "metrics" | "traces") {
+  if (!enabled()) return;
+  const record = {
+    __name__: "arcade_openobserve_export_errors_total",
+    __type__: "counter",
+    service: SERVICE,
+    signal,
+    _timestamp: nowMs(),
+    value: 1,
+  };
+  void fetch(`${BASE}/ingest/metrics/_json`, {
     method: "POST",
     headers: {
       Authorization: authHeader(),
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...extraHeaders,
     },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  let data: unknown = text;
+    body: JSON.stringify([record]),
+  }).catch(() => undefined);
+}
+
+async function postJson(path: string, body: unknown, extraHeaders: Record<string, string> = {}) {
+  if (!enabled()) return { ok: false, skipped: true as const, status: 0, data: null };
   try {
-    data = text ? JSON.parse(text) : null;
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader(),
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...extraHeaders,
+      },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data: unknown = text;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      /* keep text */
+    }
+    if (!res.ok) noteExportError(signalForPath(path));
+    return { ok: res.ok, skipped: false as const, status: res.status, data };
   } catch {
-    /* keep text */
+    noteExportError(signalForPath(path));
+    return { ok: false, skipped: false as const, status: 0, data: null };
   }
-  return { ok: res.ok, skipped: false as const, status: res.status, data };
 }
 
 async function getJson(path: string) {
@@ -241,27 +276,98 @@ export async function traceSpan(input: SpanInput) {
   }
 }
 
-/** Domain event helper used by auth/game handlers */
-export async function track(event: {
+export type EmitMetric = {
+  name: string;
+  value: number;
+  labels?: Record<string, string>;
+  type?: "counter" | "gauge" | "histogram";
+};
+
+export type EmitActionInput = {
   event: string;
+  traceId?: string;
+  parentSpanId?: string;
   user?: string;
-  game_id?: number;
-  result?: string;
-  detail?: string;
-}) {
+  gameId?: string;
+  matchId?: number;
+  metrics?: EmitMetric[];
+  logLevel?: LogLevel;
+  logFields?: Record<string, unknown>;
+  spanAttributes?: Record<string, string | number | boolean>;
+  statusCode?: 0 | 1 | 2;
+  statusMessage?: string;
+};
+
+/**
+ * Emit a correlated triad: log + metric(s) + span for one product action.
+ */
+export async function emitAction(input: EmitActionInput) {
+  const traceId = input.traceId ?? hexId(16);
+  const spanId = hexId(8);
+  const fields: Record<string, unknown> = {
+    event: input.event,
+    ...(input.user ? { user: input.user } : {}),
+    ...(input.gameId ? { game_id: input.gameId } : {}),
+    ...(input.matchId != null ? { match_id: input.matchId } : {}),
+    ...(input.logFields ?? {}),
+  };
+
   await Promise.all([
-    log("info", event.event, {
-      event: event.event,
-      user: event.user,
-      game_id: event.game_id,
-      result: event.result,
-      detail: event.detail,
-    }),
-    metric("arcade_events", 1, {
-      event: event.event,
-      ...(event.result ? { result: event.result } : {}),
+    log(input.logLevel ?? "info", input.event, fields, { traceId, spanId }),
+    ...(input.metrics ?? []).map((m) =>
+      metric(m.name, m.value, m.labels ?? {}, m.type ?? "counter"),
+    ),
+    traceSpan({
+      name: input.event,
+      traceId,
+      spanId,
+      parentSpanId: input.parentSpanId,
+      attributes: {
+        event: input.event,
+        ...(input.user ? { "user.name": input.user } : {}),
+        ...(input.gameId ? { "game.id": input.gameId } : {}),
+        ...(input.matchId != null ? { "match.id": input.matchId } : {}),
+        ...(input.spanAttributes ?? {}),
+      },
+      statusCode: input.statusCode ?? 1,
+      statusMessage: input.statusMessage,
     }),
   ]);
+
+  return { traceId, spanId };
+}
+
+/** Inject N full action triads (admin portal). */
+export async function injectActionSamples(event: string, count: number) {
+  const def = findAction(event);
+  if (!def) {
+    return { ok: false, skipped: false, status: 400, ingested: 0, requested: count, error: "unknown action" };
+  }
+  if (!enabled()) {
+    return { ok: false, skipped: true as const, status: 0, ingested: 0, requested: count };
+  }
+
+  let ingested = 0;
+  let ok = true;
+  let status = 0;
+  for (let i = 0; i < count; i++) {
+    const metrics = def.metrics.map((m) => ({
+      name: m.name,
+      value: m.type === "histogram" || m.type === "gauge" ? (m.name.includes("duration") ? 12 + i : 1) : 1,
+      labels: { ...m.defaultLabels, inject: "admin" },
+      type: m.type,
+    }));
+    const res = await emitAction({
+      event: def.event,
+      metrics,
+      logFields: { inject: "admin", sample: i + 1 },
+      spanAttributes: { inject: "admin", sample: i + 1 },
+    });
+    if (res.traceId) ingested += 1;
+    status = 200;
+  }
+
+  return { ok, skipped: false as const, status, ingested, requested: count, event: def.event };
 }
 
 export type RequestContext = {
@@ -308,11 +414,16 @@ export async function finishRequest(
       route: ctx.route,
       status: String(status),
     }),
-    metric("arcade_http_duration_ms", durationMs, {
-      method: ctx.method,
-      route: ctx.route,
-      status: String(status),
-    }, "gauge"),
+    metric(
+      "arcade_http_duration_ms",
+      durationMs,
+      {
+        method: ctx.method,
+        route: ctx.route,
+        status: String(status),
+      },
+      "histogram",
+    ),
     traceSpan({
       name: `${ctx.method} ${ctx.route}`,
       traceId: ctx.traceId,
@@ -323,6 +434,7 @@ export async function finishRequest(
         "http.method": ctx.method,
         "http.route": ctx.route,
         "http.status_code": status,
+        event: "http.request",
         ...extra,
       },
       statusCode: ok ? 1 : 2,

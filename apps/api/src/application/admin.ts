@@ -1,12 +1,18 @@
 import { AppError, type PublicUser } from "@arcade/shared";
-import type { EngineCatalog, MatchRepository, ObservabilityPort } from "../domain/ports";
+import type { EngineCatalog, MatchRepository, ObservabilityPort, TraceCtx } from "../domain/ports";
+import { ACTIONS_CATALOG, findAction } from "../infrastructure/observability/actions-catalog";
 import { findMetric, METRICS_CATALOG } from "../infrastructure/observability/metrics-catalog";
 import {
+  injectActionSamples,
   injectMetricSamples,
   observabilityEnabled,
 } from "../infrastructure/observability/openobserve";
 
 const MAX_INJECT = 500;
+
+function traceFields(trace?: TraceCtx) {
+  return { traceId: trace?.traceId, parentSpanId: trace?.parentSpanId };
+}
 
 export function createAdminUseCases(deps: {
   matches: MatchRepository;
@@ -14,7 +20,7 @@ export function createAdminUseCases(deps: {
   obs: ObservabilityPort;
 }) {
   return {
-    async insights(user: PublicUser) {
+    async insights(user: PublicUser, trace?: TraceCtx) {
       if (user.role !== "admin") throw new AppError("Forbidden", 403, "forbidden");
 
       const [popularity, recent, leaderboard] = await Promise.all([
@@ -45,10 +51,17 @@ export function createAdminUseCases(deps: {
 
       const favored = enriched[0] ?? null;
 
-      void deps.obs.log("info", "admin.insights", { admin: user.username });
-      void deps.obs.span({
-        name: "admin.insights",
-        attributes: { "user.name": user.username },
+      await deps.obs.emitAction({
+        event: "admin.insights",
+        ...traceFields(trace),
+        user: user.username,
+        metrics: [
+          {
+            name: "arcade_events",
+            value: 1,
+            labels: { event: "admin_insights", result: "ok" },
+          },
+        ],
       });
 
       return {
@@ -70,6 +83,7 @@ export function createAdminUseCases(deps: {
         configured: observabilityEnabled(),
         maxInject: MAX_INJECT,
         metrics: METRICS_CATALOG,
+        actions: ACTIONS_CATALOG,
       };
     },
 
@@ -78,6 +92,7 @@ export function createAdminUseCases(deps: {
       name: string,
       count: number,
       labels?: Record<string, string>,
+      trace?: TraceCtx,
     ) {
       if (user.role !== "admin") throw new AppError("Forbidden", 403, "forbidden");
 
@@ -92,13 +107,25 @@ export function createAdminUseCases(deps: {
       const mergedLabels = { ...def.defaultLabels, ...(labels ?? {}) };
       const result = await injectMetricSamples(def.name, n, mergedLabels, def.type, 1);
 
-      void deps.obs.log("info", "admin.metric_inject", {
-        admin: user.username,
-        metric: def.name,
-        count: n,
-        ingested: result.ingested,
-        ok: result.ok,
-        skipped: result.skipped,
+      await deps.obs.emitAction({
+        event: "admin.metric_inject",
+        ...traceFields(trace),
+        user: user.username,
+        metrics: [
+          {
+            name: "arcade_admin_injects_total",
+            value: 1,
+            labels: { kind: "metric", target: def.name },
+          },
+        ],
+        logFields: {
+          metric: def.name,
+          count: n,
+          ingested: result.ingested,
+          ok: result.ok,
+          skipped: result.skipped,
+        },
+        statusCode: result.ok || result.skipped ? 1 : 2,
       });
 
       if (result.skipped) {
@@ -116,6 +143,57 @@ export function createAdminUseCases(deps: {
         ok: result.ok,
         status: result.status,
         labels: mergedLabels,
+      };
+    },
+
+    async injectAction(user: PublicUser, event: string, count: number, trace?: TraceCtx) {
+      if (user.role !== "admin") throw new AppError("Forbidden", 403, "forbidden");
+
+      const def = findAction(event);
+      if (!def) throw new AppError(`Unknown action: ${event}`, 400, "bad_request");
+
+      const n = Math.floor(Number(count));
+      if (!Number.isFinite(n) || n < 1 || n > MAX_INJECT) {
+        throw new AppError(`count must be 1–${MAX_INJECT}`, 400, "bad_request");
+      }
+
+      const result = await injectActionSamples(def.event, n);
+
+      await deps.obs.emitAction({
+        event: "admin.action_inject",
+        ...traceFields(trace),
+        user: user.username,
+        metrics: [
+          {
+            name: "arcade_admin_injects_total",
+            value: 1,
+            labels: { kind: "action", target: def.event },
+          },
+        ],
+        logFields: {
+          action: def.event,
+          count: n,
+          ingested: result.ingested,
+          ok: result.ok,
+          skipped: result.skipped,
+        },
+        statusCode: result.ok || result.skipped ? 1 : 2,
+      });
+
+      if (result.skipped) {
+        throw new AppError(
+          "OpenObserve is not configured (set OPENOBSERVE_URL / USER / PASSWORD)",
+          503,
+          "unavailable",
+        );
+      }
+
+      return {
+        event: def.event,
+        requested: n,
+        ingested: result.ingested,
+        ok: result.ok,
+        status: result.status,
       };
     },
   };

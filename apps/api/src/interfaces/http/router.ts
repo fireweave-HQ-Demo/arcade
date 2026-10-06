@@ -4,6 +4,7 @@ import type { AuthUseCases } from "../../application/auth";
 import type { GameUseCases } from "../../application/games";
 import type { ScoreboardUseCases } from "../../application/scoreboard";
 import type { AdminUseCases } from "../../application/admin";
+import type { TraceCtx } from "../../domain/ports";
 import {
   finishRequest,
   listStreams,
@@ -26,6 +27,11 @@ function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), { ...init, headers });
 }
 
+function toTrace(ctx: RequestContext | null): TraceCtx | undefined {
+  if (!ctx) return undefined;
+  return { traceId: ctx.traceId, parentSpanId: ctx.spanId };
+}
+
 export type AppServices = {
   auth: AuthUseCases;
   games: GameUseCases;
@@ -40,6 +46,7 @@ export function createHandler(services: AppServices) {
     const ctx: RequestContext | null = path.startsWith("/api/")
       ? startRequest(req, path)
       : null;
+    const trace = toTrace(ctx);
 
     const respond = async (
       res: Response,
@@ -70,7 +77,11 @@ export function createHandler(services: AppServices) {
 
       if (path === "/api/auth/register" && req.method === "POST") {
         const body = (await req.json()) as { username?: string; password?: string };
-        const session = await services.auth.register(body.username ?? "", body.password ?? "");
+        const session = await services.auth.register(
+          body.username ?? "",
+          body.password ?? "",
+          trace,
+        );
         return respond(
           json(
             { user: session.user },
@@ -82,7 +93,11 @@ export function createHandler(services: AppServices) {
 
       if (path === "/api/auth/login" && req.method === "POST") {
         const body = (await req.json()) as { username?: string; password?: string };
-        const session = await services.auth.login(body.username ?? "", body.password ?? "");
+        const session = await services.auth.login(
+          body.username ?? "",
+          body.password ?? "",
+          trace,
+        );
         return respond(
           json(
             { user: session.user },
@@ -93,7 +108,7 @@ export function createHandler(services: AppServices) {
       }
 
       if (path === "/api/auth/logout" && req.method === "POST") {
-        await services.auth.logout(sessionTokenFromRequest(req));
+        await services.auth.logout(sessionTokenFromRequest(req), trace);
         return respond(
           json({ ok: true }, { headers: { "Set-Cookie": clearSessionCookie() } }),
         );
@@ -101,6 +116,7 @@ export function createHandler(services: AppServices) {
 
       if (path === "/api/auth/me" && req.method === "GET") {
         const user = await services.auth.me(sessionTokenFromRequest(req));
+        await services.auth.trackSessionRestore(Boolean(user), user?.username, trace);
         if (!user) return respond(json({ user: null }));
         return respond(
           json({ user: { id: user.id, username: user.username, role: user.role } }),
@@ -108,14 +124,14 @@ export function createHandler(services: AppServices) {
       }
 
       if (path === "/api/games" && req.method === "GET") {
-        return respond(json({ games: services.games.listGames() }));
+        return respond(json({ games: await services.games.listGames(trace) }));
       }
 
       const matchGet = path.match(/^\/api\/games\/([^/]+)\/match$/);
       if (matchGet && req.method === "GET") {
         const user = await services.auth.me(sessionTokenFromRequest(req));
         if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
-        const match = await services.games.getOrCreateMatch(user, matchGet[1]!, ctx?.traceId);
+        const match = await services.games.getOrCreateMatch(user, matchGet[1]!, trace);
         return respond(json(match), { game: match.gameId });
       }
 
@@ -123,7 +139,7 @@ export function createHandler(services: AppServices) {
       if (matchNew && req.method === "POST") {
         const user = await services.auth.me(sessionTokenFromRequest(req));
         if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
-        const match = await services.games.newMatch(user, matchNew[1]!, ctx?.traceId);
+        const match = await services.games.newMatch(user, matchNew[1]!, trace);
         return respond(json(match), { game: match.gameId });
       }
 
@@ -132,12 +148,7 @@ export function createHandler(services: AppServices) {
         const user = await services.auth.me(sessionTokenFromRequest(req));
         if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
         const body = await req.json();
-        const match = await services.games.applyMove(
-          user,
-          matchMove[1]!,
-          body,
-          ctx?.traceId,
-        );
+        const match = await services.games.applyMove(user, matchMove[1]!, body, trace);
         return respond(json(match), { game: match.gameId });
       }
 
@@ -145,7 +156,7 @@ export function createHandler(services: AppServices) {
         const user = await services.auth.me(sessionTokenFromRequest(req));
         if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
         const [me, leaderboard] = await Promise.all([
-          services.scoreboard.forUser(user),
+          services.scoreboard.forUser(user, trace),
           services.scoreboard.leaderboard(),
         ]);
         return respond(json({ me, leaderboard }));
@@ -154,7 +165,7 @@ export function createHandler(services: AppServices) {
       if (path === "/api/admin/insights" && req.method === "GET") {
         const user = await services.auth.me(sessionTokenFromRequest(req));
         if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
-        const insights = await services.admin.insights(user);
+        const insights = await services.admin.insights(user, trace);
         return respond(json(insights));
       }
 
@@ -177,9 +188,26 @@ export function createHandler(services: AppServices) {
           body.name ?? "",
           body.count ?? 0,
           body.labels,
+          trace,
         );
         return respond(json(result), {
           metric: result.metric,
+          ingested: result.ingested,
+        });
+      }
+
+      if (path === "/api/admin/actions/inject" && req.method === "POST") {
+        const user = await services.auth.me(sessionTokenFromRequest(req));
+        if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
+        const body = (await req.json()) as { event?: string; count?: number };
+        const result = await services.admin.injectAction(
+          user,
+          body.event ?? "",
+          body.count ?? 0,
+          trace,
+        );
+        return respond(json(result), {
+          event: result.event,
           ingested: result.ingested,
         });
       }

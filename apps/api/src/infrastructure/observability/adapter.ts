@@ -1,5 +1,5 @@
 import type { ObservabilityPort } from "../../domain/ports";
-import { log, metric, traceSpan } from "./openobserve";
+import { emitAction, log, metric, traceSpan } from "./openobserve";
 
 export const observability: ObservabilityPort = {
   log,
@@ -8,8 +8,12 @@ export const observability: ObservabilityPort = {
     const result = await traceSpan({
       name: input.name,
       traceId: input.traceId,
+      parentSpanId: input.parentSpanId,
       attributes: input.attributes,
+      statusCode: input.statusCode,
+      statusMessage: input.statusMessage,
     });
     return { traceId: result.traceId, spanId: result.spanId };
   },
+  emitAction,
 };

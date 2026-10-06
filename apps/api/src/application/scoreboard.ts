@@ -1,12 +1,16 @@
 import type { PublicUser, Scoreboard } from "@arcade/shared";
-import type { MatchRepository, ObservabilityPort } from "../domain/ports";
+import type { MatchRepository, ObservabilityPort, TraceCtx } from "../domain/ports";
+
+function traceFields(trace?: TraceCtx) {
+  return { traceId: trace?.traceId, parentSpanId: trace?.parentSpanId };
+}
 
 export function createScoreboardUseCases(deps: {
   matches: MatchRepository;
   obs: ObservabilityPort;
 }) {
   return {
-    async forUser(user: PublicUser): Promise<Scoreboard> {
+    async forUser(user: PublicUser, trace?: TraceCtx): Promise<Scoreboard> {
       const byGame = await deps.matches.scoreboardForUser(user.id);
       const global = byGame.reduce(
         (acc, row) => ({
@@ -17,9 +21,11 @@ export function createScoreboardUseCases(deps: {
         }),
         { played: 0, wins: 0, losses: 0, draws: 0 },
       );
-      void deps.obs.span({
-        name: "scoreboard.me",
-        attributes: { "user.name": user.username },
+      await deps.obs.emitAction({
+        event: "scoreboard.view",
+        ...traceFields(trace),
+        user: user.username,
+        metrics: [{ name: "arcade_scoreboard_views_total", value: 1, labels: {} }],
       });
       return { global, byGame };
     },
