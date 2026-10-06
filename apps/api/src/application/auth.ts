@@ -1,6 +1,7 @@
 import { AppError, type PublicUser } from "@arcade/shared";
 import type { ObservabilityPort, SessionRepository, TraceCtx, UserRepository } from "../domain/ports";
 import { makePasswordHash, makeToken, verifyPassword } from "../infrastructure/auth/password";
+import { fw } from "../fireweave/fw-harness";
 import { registerFwTarget } from "../fireweave/fw-providers";
 
 const SESSION_DAYS = 30;
@@ -14,6 +15,8 @@ export function createAuthUseCases(deps: {
   sessions: SessionRepository;
   obs: ObservabilityPort;
 }) {
+  const record = deps.obs.metric.bind(deps.obs);
+
   return {
     async register(username: string, password: string, trace?: TraceCtx) {
       const name = username.trim().toLowerCase();
@@ -147,6 +150,95 @@ export function createAuthUseCases(deps: {
         console.warn("[fireweave] registerFwTarget failed after login", reg);
       }
       return { user: publicUser, token, maxAge: SESSION_DAYS * 86400 };
+    },
+
+    async changePassword(
+      user: PublicUser,
+      currentToken: string,
+      currentPassword: string,
+      newPassword: string,
+      trace?: TraceCtx,
+    ) {
+      // @fireweave-controlpoint change-password
+      const enabled = await fw.controlPoints.getBooleanValue("change-password", false, {
+        targetingKey: String(user.id),
+      });
+      if (!enabled) throw new AppError("Not found", 404, "not_found");
+
+      const started = Date.now();
+      const fail = async (reason: string, err: AppError): Promise<never> => {
+        const elapsed = Date.now() - started;
+        await record("arcade_password_changes_total", 1, { result: "error" }, "counter");
+        await record("arcade_password_change_errors_total", 1, { reason }, "counter");
+        await record("arcade_password_change_ms", elapsed, { result: "error" }, "histogram");
+        await deps.obs.emitAction({
+          event: "auth.password_change",
+          ...traceFields(trace),
+          user: user.username,
+          logLevel: "warn",
+          logFields: { reason, duration_ms: elapsed },
+          statusCode: 2,
+          statusMessage: err.message,
+        });
+        throw err;
+      };
+
+      try {
+        const stored = await deps.users.findByUsername(user.username);
+        if (!stored || !verifyPassword(currentPassword, stored.passwordHash)) {
+          await fail(
+            "bad_password",
+            new AppError("Current password is wrong", 401, "bad_password"),
+          );
+        }
+        if (newPassword.length < 4) {
+          await fail(
+            "weak_password",
+            new AppError("Password must be at least 4 characters", 400, "weak_password"),
+          );
+        }
+        if (newPassword === currentPassword) {
+          await fail(
+            "unchanged",
+            new AppError("New password must be different", 400, "unchanged"),
+          );
+        }
+        await deps.users.updatePassword(user.id, makePasswordHash(newPassword));
+        await deps.sessions.deleteOthers(user.id, currentToken);
+        const elapsed = Date.now() - started;
+        await record("arcade_password_changes_total", 1, { result: "ok" }, "counter");
+        await record("arcade_password_change_ms", elapsed, { result: "ok" }, "histogram");
+        await deps.obs.emitAction({
+          event: "auth.password_change",
+          ...traceFields(trace),
+          user: user.username,
+          logFields: { duration_ms: elapsed, revoked_other_sessions: true },
+          metrics: [
+            {
+              name: "arcade_events",
+              value: 1,
+              labels: { event: "password_change", result: "ok" },
+            },
+          ],
+          spanAttributes: { "password.duration_ms": elapsed },
+        });
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        const elapsed = Date.now() - started;
+        await record("arcade_password_changes_total", 1, { result: "error" }, "counter");
+        await record("arcade_password_change_errors_total", 1, { reason: "query_failed" }, "counter");
+        await record("arcade_password_change_ms", elapsed, { result: "error" }, "histogram");
+        await deps.obs.emitAction({
+          event: "auth.password_change",
+          ...traceFields(trace),
+          user: user.username,
+          logLevel: "error",
+          logFields: { reason: "query_failed", duration_ms: elapsed },
+          statusCode: 2,
+          statusMessage: err instanceof Error ? err.message : "query failed",
+        });
+        throw err;
+      }
     },
 
     async logout(token: string | undefined, trace?: TraceCtx) {

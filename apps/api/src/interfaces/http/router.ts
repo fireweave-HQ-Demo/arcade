@@ -151,6 +151,25 @@ export function createHandler(services: AppServices) {
         );
       }
 
+      if (path === "/api/auth/password" && req.method === "POST") {
+        const sessionUser = await services.auth.me(sessionTokenFromRequest(req));
+        if (!sessionUser) {
+          return respond(json({ error: "unauthorized", code: "unauthorized" }, { status: 401 }));
+        }
+        const body = (await req.json().catch(() => ({}))) as {
+          currentPassword?: string;
+          newPassword?: string;
+        };
+        await services.auth.changePassword(
+          sessionUser,
+          sessionUser.token,
+          typeof body.currentPassword === "string" ? body.currentPassword : "",
+          typeof body.newPassword === "string" ? body.newPassword : "",
+          trace,
+        );
+        return respond(json({ ok: true }));
+      }
+
       if (path === "/api/auth/logout" && req.method === "POST") {
         await services.auth.logout(sessionTokenFromRequest(req), trace);
         return respond(

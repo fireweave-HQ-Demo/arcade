@@ -31,13 +31,16 @@ export const userRepo: UserRepository = {
     return { id: row.id, username: row.username, role: row.role as Role };
   },
 
+  async updatePassword(id, passwordHash) {
+    await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${id}`;
+  },
+
   async ensureAdmin(username, passwordHash) {
     const existing = await this.findByUsername(username);
     if (existing) {
-      await sql`
-        UPDATE users SET role = 'admin', password_hash = ${passwordHash}
-        WHERE username = ${username}
-      `;
+      if (existing.role !== "admin") {
+        await sql`UPDATE users SET role = 'admin' WHERE username = ${username}`;
+      }
       return;
     }
     await this.create(username, passwordHash, "admin");

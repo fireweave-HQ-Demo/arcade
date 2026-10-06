@@ -18,4 +18,5 @@
 /** The committed stamp record. Append one entry per feature change. */
 export const FW_STAMPS: Array<{ stampId: string }> = [
   { stampId: "stmp_01M48Q5RVH3DK9FVCWZ773DT12" },
+  { stampId: "stmp_01M48RN00Q6F6R5MYP5J1J0ESW" },
 ];

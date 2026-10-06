@@ -14,6 +14,13 @@ export const sessionRepo: SessionRepository = {
     await sql`DELETE FROM sessions WHERE token = ${token}`;
   },
 
+  async deleteOthers(userId, keepToken) {
+    await sql`
+      DELETE FROM sessions
+      WHERE user_id = ${userId} AND token <> ${keepToken}
+    `;
+  },
+
   async findUserByToken(token) {
     const [row] = await sql`
       SELECT u.id, u.username, u.role, s.token

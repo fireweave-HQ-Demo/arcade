@@ -81,6 +81,23 @@ export const ACTIONS_CATALOG: ActionDef[] = [
     source: "auth.me",
   },
   {
+    event: "auth.password_change",
+    description: "Signed-in player changed their password",
+    metrics: [
+      {
+        name: "arcade_password_changes_total",
+        type: "counter",
+        defaultLabels: { result: "ok" },
+      },
+      {
+        name: "arcade_password_change_ms",
+        type: "histogram",
+        defaultLabels: { result: "ok" },
+      },
+    ],
+    source: "auth.changePassword",
+  },
+  {
     event: "auth.failure",
     description: "Failed login or register",
     metrics: [

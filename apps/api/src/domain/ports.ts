@@ -64,12 +64,14 @@ export interface UserRepository {
   create(username: string, passwordHash: string, role?: Role): Promise<PublicUser>;
   findByUsername(username: string): Promise<UserRecord | null>;
   findById(id: number): Promise<PublicUser | null>;
+  updatePassword(id: number, passwordHash: string): Promise<void>;
   ensureAdmin(username: string, passwordHash: string): Promise<void>;
 }
 
 export interface SessionRepository {
   create(token: string, userId: number, expiresAt: Date): Promise<void>;
   delete(token: string): Promise<void>;
+  deleteOthers(userId: number, keepToken: string): Promise<void>;
   findUserByToken(token: string): Promise<(PublicUser & { token: string }) | null>;
 }
 

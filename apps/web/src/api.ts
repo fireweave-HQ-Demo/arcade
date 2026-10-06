@@ -56,10 +56,12 @@ export type AdminInsights = {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code: string;
+  constructor(message: string, status: number, code = "request_failed") {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -83,25 +85,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
   });
 
-  let data: { error?: string } = {};
+  let data: { error?: string; code?: string } = {};
   const text = await res.text();
   if (text) {
     try {
-      data = JSON.parse(text) as { error?: string };
+      data = JSON.parse(text) as { error?: string; code?: string };
     } catch {
       data = { error: text.slice(0, 120) || "request failed" };
     }
   }
 
   if (res.status === 401) {
-    // login/register use 401 for bad credentials — do not treat as session expiry
-    if (path !== "/api/auth/login" && path !== "/api/auth/register") {
+    // login/register use 401 for bad credentials — do not treat as session expiry.
+    // A wrong current password on change-password is also 401, not a dead session.
+    if (
+      path !== "/api/auth/login" &&
+      path !== "/api/auth/register" &&
+      path !== "/api/auth/password"
+    ) {
       onUnauthorized?.();
     }
-    throw new ApiError(data.error ?? "unauthorized", 401);
+    throw new ApiError(data.error ?? "unauthorized", 401, data.code ?? "unauthorized");
   }
   if (!res.ok) {
-    throw new ApiError(data.error ?? "request failed", res.status);
+    throw new ApiError(data.error ?? "request failed", res.status, data.code ?? "request_failed");
   }
   return data as T;
 }
@@ -135,6 +142,11 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
   logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: boolean }>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
   games: () => request<{ games: GameInfo[] }>("/api/games"),
   match: (gameId: string) => request<Match>(`/api/games/${gameId}/match`),
   newMatch: (gameId: string) =>

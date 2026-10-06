@@ -15,6 +15,7 @@ import { AdminPage } from "./Admin";
 import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from "./auth";
 import { fw } from "./fireweave/fw-harness";
 import { metric as record } from "./observability/openobserve";
+import { PasswordPage } from "./Account";
 import { HistoryPage, ReplayPage } from "./History";
 import { LobbyPage } from "./Lobby";
 import { GameBoard } from "./games/GameBoard";
@@ -26,6 +27,7 @@ type LoginMode = "player" | "admin";
 const HeaderArrangementContext = createContext(false);
 const ProfileMenuContext = createContext(false);
 const MatchReplayContext = createContext(false);
+const ChangePasswordContext = createContext(false);
 
 function recordHeaderNav(target: string) {
   void record("arcade_web_header_nav_clicks_total", 1, {
@@ -417,6 +419,7 @@ function ScoreboardPage() {
 
 function ProfileMenu({ enabled }: { enabled: boolean }) {
   const { user } = useAuth();
+  const changePassword = useContext(ChangePasswordContext);
   const [open, setOpen] = useState(false);
   const [stats, setStats] = useState<Scoreboard["me"]["global"] | null>(null);
   const [recordError, setRecordError] = useState(false);
@@ -529,6 +532,11 @@ function ProfileMenu({ enabled }: { enabled: boolean }) {
           <Link to="/scoreboard" role="menuitem" onClick={() => setOpen(false)}>
             scoreboard
           </Link>
+          {changePassword ? (
+            <Link to="/account/password" role="menuitem" onClick={() => setOpen(false)}>
+              change password
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -627,6 +635,7 @@ function AppRoutes() {
         <Route path="scoreboard" element={<ScoreboardPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="history/:matchId" element={<ReplayPage />} />
+        <Route path="account/password" element={<PasswordPage />} />
         <Route
           path="admin"
           element={
@@ -746,10 +755,13 @@ function AppChrome() {
   const headerArrangement = fw.controlPoints.getBooleanValue("header-arrangement", false);
   // @fireweave-controlpoint match-replay
   const matchReplay = fw.controlPoints.getBooleanValue("match-replay", false);
+  // @fireweave-controlpoint change-password
+  const changePassword = fw.controlPoints.getBooleanValue("change-password", false);
   const unified = headerArrangement && Boolean(user);
 
   return (
     <MatchReplayContext.Provider value={matchReplay}>
+    <ChangePasswordContext.Provider value={changePassword}>
     <ProfileMenuContext.Provider value={profileMenu}>
       <HeaderArrangementContext.Provider value={unified}>
       <main
@@ -789,6 +801,7 @@ function AppChrome() {
       </main>
       </HeaderArrangementContext.Provider>
     </ProfileMenuContext.Provider>
+    </ChangePasswordContext.Provider>
     </MatchReplayContext.Provider>
   );
 }
