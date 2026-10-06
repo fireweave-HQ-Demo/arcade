@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   api,
+  type ActionDef,
   type AdminInsights,
   type MetricDef,
   type MetricsCatalog,
 } from "./api";
 
-type Tab = "insights" | "metrics";
+type Tab = "insights" | "metrics" | "actions";
 
 export function AdminPage() {
   const [tab, setTab] = useState<Tab>("insights");
@@ -18,7 +19,7 @@ export function AdminPage() {
           <div>
             <div className="status">admin portal</div>
             <p className="hint">
-              insights across every game · top players · OpenObserve metric inject
+              insights · metrics inject · action triad inject (logs + metrics + traces)
             </p>
           </div>
           <div className="nav admin-tabs">
@@ -34,13 +35,26 @@ export function AdminPage() {
               className={`btn secondary ${tab === "metrics" ? "active" : ""}`}
               onClick={() => setTab("metrics")}
             >
-              metrics inject
+              metrics
+            </button>
+            <button
+              type="button"
+              className={`btn secondary ${tab === "actions" ? "active" : ""}`}
+              onClick={() => setTab("actions")}
+            >
+              actions
             </button>
           </div>
         </div>
       </section>
 
-      {tab === "insights" ? <InsightsPanel /> : <MetricsPanel />}
+      {tab === "insights" ? (
+        <InsightsPanel />
+      ) : tab === "metrics" ? (
+        <MetricsPanel />
+      ) : (
+        <ActionsPanel />
+      )}
     </div>
   );
 }
@@ -329,6 +343,157 @@ function MetricsPanel() {
                 .map(([k, v]) => `${k}=${v}`)
                 .join(", ") || "—"}
             </p>
+            {result ? <p className={result.startsWith("injected") ? "hint" : "error"}>{result}</p> : null}
+            <div className="row" style={{ marginTop: "0.75rem" }}>
+              <button className="btn mint" disabled={busy} onClick={() => void confirmInject()}>
+                {busy ? "injecting…" : "confirm inject"}
+              </button>
+              <button
+                className="btn secondary"
+                disabled={busy}
+                onClick={() => {
+                  setInjecting(null);
+                  setResult("");
+                }}
+              >
+                cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {result && !injecting ? <p className="hint" style={{ marginTop: "1rem" }}>{result}</p> : null}
+    </section>
+  );
+}
+
+function ActionsPanel() {
+  const [catalog, setCatalog] = useState<MetricsCatalog | null>(null);
+  const [error, setError] = useState("");
+  const [injecting, setInjecting] = useState<ActionDef | null>(null);
+  const [count, setCount] = useState("5");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState("");
+
+  useEffect(() => {
+    void api
+      .adminMetrics()
+      .then(setCatalog)
+      .catch((e: Error) => setError(e.message));
+  }, []);
+
+  async function confirmInject() {
+    if (!injecting || !catalog) return;
+    const n = Math.floor(Number(count));
+    if (!Number.isFinite(n) || n < 1 || n > catalog.maxInject) {
+      setResult(`enter a count between 1 and ${catalog.maxInject}`);
+      return;
+    }
+    setBusy(true);
+    setResult("");
+    try {
+      const res = await api.injectAction(injecting.event, n);
+      setResult(
+        res.ok
+          ? `injected ${res.ingested}/${res.requested} × ${res.event} (log+metric+trace)`
+          : `inject failed (status ${res.status}) — ingested ${res.ingested}`,
+      );
+      if (res.ok) setInjecting(null);
+    } catch (e) {
+      setResult(e instanceof Error ? e.message : "inject failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (error) {
+    return (
+      <section className="panel">
+        <p className="error">{error}</p>
+      </section>
+    );
+  }
+  if (!catalog) {
+    return (
+      <section className="panel">
+        <p className="hint">loading action catalog…</p>
+      </section>
+    );
+  }
+
+  const actions = catalog.actions ?? [];
+
+  return (
+    <section className="panel">
+      <div className="topbar">
+        <div>
+          <div className="status">action catalog</div>
+          <p className="hint">
+            each inject emits correlated logs, metrics, and traces · OpenObserve{" "}
+            {catalog.configured ? "connected" : "not configured"}
+          </p>
+        </div>
+      </div>
+
+      <table className="data metrics-table" style={{ marginTop: "1rem" }}>
+        <thead>
+          <tr>
+            <th>event</th>
+            <th>description</th>
+            <th>metrics</th>
+            <th>source</th>
+            <th>inject triad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {actions.map((a) => (
+            <tr key={a.event}>
+              <td>
+                <code className="mono">{a.event}</code>
+              </td>
+              <td>{a.description}</td>
+              <td className="hint">
+                {a.metrics.map((m) => m.name).join(", ") || "—"}
+              </td>
+              <td className="hint">{a.source}</td>
+              <td>
+                <button
+                  type="button"
+                  className="btn mint"
+                  style={{ padding: "0.45rem 0.75rem" }}
+                  onClick={() => {
+                    setInjecting(a);
+                    setCount("5");
+                    setResult("");
+                  }}
+                >
+                  inject
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {injecting ? (
+        <div className="inject-dialog" role="dialog" aria-modal="true">
+          <div className="inject-card">
+            <div className="status">inject action triad</div>
+            <p className="hint" style={{ marginTop: "0.5rem" }}>
+              <code className="mono">{injecting.event}</code> → logs + metrics + traces
+            </p>
+            <label className="inject-label">
+              how many times?
+              <input
+                type="number"
+                min={1}
+                max={catalog.maxInject}
+                value={count}
+                onChange={(e) => setCount(e.target.value)}
+                autoFocus
+              />
+            </label>
             {result ? <p className={result.startsWith("injected") ? "hint" : "error"}>{result}</p> : null}
             <div className="row" style={{ marginTop: "0.75rem" }}>
               <button className="btn mint" disabled={busy} onClick={() => void confirmInject()}>

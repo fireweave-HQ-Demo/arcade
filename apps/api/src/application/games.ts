@@ -3,7 +3,18 @@ import type {
   EngineCatalog,
   MatchRepository,
   ObservabilityPort,
+  TraceCtx,
 } from "../domain/ports";
+
+/** In-process active match gauges + start clocks for duration histograms. */
+const activeByGame = new Map<string, number>();
+const matchStartedAt = new Map<number, number>();
+
+function bumpActive(gameId: string, delta: number) {
+  const next = Math.max(0, (activeByGame.get(gameId) ?? 0) + delta);
+  activeByGame.set(gameId, next);
+  return next;
+}
 
 function toDto(m: {
   id: number;
@@ -21,22 +32,33 @@ function toDto(m: {
   };
 }
 
+function traceFields(trace?: TraceCtx) {
+  return { traceId: trace?.traceId, parentSpanId: trace?.parentSpanId };
+}
+
 export function createGameUseCases(deps: {
   matches: MatchRepository;
   engines: EngineCatalog;
   obs: ObservabilityPort;
 }) {
   return {
-    listGames() {
-      return deps.engines.list().map((e) => ({
+    async listGames(trace?: TraceCtx) {
+      const games = deps.engines.list().map((e) => ({
         id: e.id,
         name: e.name,
         description: e.description,
         rules: e.rules,
       }));
+      await deps.obs.emitAction({
+        event: "lobby.view",
+        ...traceFields(trace),
+        metrics: [{ name: "arcade_lobby_views_total", value: 1, labels: {} }],
+        spanAttributes: { games: games.length },
+      });
+      return games;
     },
 
-    async getOrCreateMatch(user: PublicUser, gameId: string, traceId?: string) {
+    async getOrCreateMatch(user: PublicUser, gameId: string, trace?: TraceCtx) {
       const engine = (() => {
         try {
           return deps.engines.require(gameId);
@@ -52,35 +74,48 @@ export function createGameUseCases(deps: {
           matchId: match.id,
           actor: "system",
           move: { event: "start" },
-          traceId,
+          traceId: trace?.traceId,
         });
-        void deps.obs.log("info", "match.start", {
-          game_id: gameId,
-          match_id: match.id,
+        matchStartedAt.set(match.id, Date.now());
+        const active = bumpActive(gameId, 1);
+        await deps.obs.emitAction({
+          event: "match.start",
+          ...traceFields(trace),
           user: user.username,
-        });
-        void deps.obs.metric("arcade_matches_total", 1, { game: gameId, result: "started" });
-        void deps.obs.metric("arcade_game_popularity", 1, { game: gameId });
-        void deps.obs.span({
-          name: "match.start",
-          traceId,
-          attributes: { "game.id": gameId, "match.id": match.id, "user.name": user.username },
+          gameId,
+          matchId: match.id,
+          metrics: [
+            { name: "arcade_matches_total", value: 1, labels: { game: gameId, result: "started" } },
+            { name: "arcade_game_popularity", value: 1, labels: { game: gameId } },
+            {
+              name: "arcade_active_matches",
+              value: active,
+              labels: { game: gameId },
+              type: "gauge",
+            },
+          ],
         });
       }
       return toDto(match);
     },
 
-    async newMatch(user: PublicUser, gameId: string, traceId?: string) {
+    async newMatch(user: PublicUser, gameId: string, trace?: TraceCtx) {
       deps.engines.require(gameId);
+      const existing = await deps.matches.findActive(user.id, gameId);
+      if (existing) {
+        matchStartedAt.delete(existing.id);
+        const active = bumpActive(gameId, -1);
+        void deps.obs.metric("arcade_active_matches", active, { game: gameId }, "gauge");
+      }
       await deps.matches.abandonActive(user.id, gameId);
-      return this.getOrCreateMatch(user, gameId, traceId);
+      return this.getOrCreateMatch(user, gameId, trace);
     },
 
     async applyMove(
       user: PublicUser,
       gameId: string,
       move: unknown,
-      traceId?: string,
+      trace?: TraceCtx,
     ): Promise<MatchDto> {
       const engine = (() => {
         try {
@@ -94,27 +129,82 @@ export function createGameUseCases(deps: {
       if (!match) throw new AppError("No active match", 404, "not_found");
 
       const human = engine.applyHumanMove(match.state, move);
-      if (human.illegal) throw new AppError("Illegal move");
+      if (human.illegal) {
+        await deps.obs.emitAction({
+          event: "match.illegal",
+          ...traceFields(trace),
+          user: user.username,
+          gameId,
+          matchId: match.id,
+          logLevel: "warn",
+          metrics: [
+            { name: "arcade_illegal_moves_total", value: 1, labels: { game: gameId } },
+          ],
+          statusCode: 2,
+          statusMessage: "illegal move",
+        });
+        throw new AppError("Illegal move");
+      }
 
       let state = human.state;
       await deps.matches.addEvent({
         matchId: match.id,
         actor: "human",
         move,
-        traceId,
+        traceId: trace?.traceId,
       });
-      void deps.obs.metric("arcade_moves_total", 1, { game: gameId, actor: "human" });
+      await deps.obs.emitAction({
+        event: "match.move",
+        ...traceFields(trace),
+        user: user.username,
+        gameId,
+        matchId: match.id,
+        metrics: [
+          { name: "arcade_moves_total", value: 1, labels: { game: gameId, actor: "human" } },
+        ],
+        logFields: { actor: "human" },
+        spanAttributes: { actor: "human" },
+      });
 
       let status = engine.status(state);
       if (status === "playing") {
+        const botStart = Date.now();
         state = engine.applyBotMove(state);
+        const botMs = Date.now() - botStart;
         await deps.matches.addEvent({
           matchId: match.id,
           actor: "bot",
           move: { auto: true },
-          traceId,
+          traceId: trace?.traceId,
         });
-        void deps.obs.metric("arcade_moves_total", 1, { game: gameId, actor: "bot" });
+        await deps.obs.emitAction({
+          event: "match.move",
+          ...traceFields(trace),
+          user: user.username,
+          gameId,
+          matchId: match.id,
+          metrics: [
+            { name: "arcade_moves_total", value: 1, labels: { game: gameId, actor: "bot" } },
+          ],
+          logFields: { actor: "bot" },
+          spanAttributes: { actor: "bot" },
+        });
+        await deps.obs.emitAction({
+          event: "match.bot_think",
+          ...traceFields(trace),
+          gameId,
+          matchId: match.id,
+          metrics: [
+            {
+              name: "arcade_bot_move_duration_ms",
+              value: botMs,
+              labels: { game: gameId },
+              type: "histogram",
+            },
+          ],
+          logFields: { duration_ms: botMs },
+          spanAttributes: { "bot.duration_ms": botMs },
+        });
         status = engine.status(state);
       }
 
@@ -125,30 +215,37 @@ export function createGameUseCases(deps: {
       } else {
         match.status = "finished";
         match.winner = status;
-        void deps.obs.log("info", "match.end", {
-          game_id: gameId,
-          match_id: match.id,
-          result: status,
+        const started = matchStartedAt.get(match.id) ?? Date.now();
+        matchStartedAt.delete(match.id);
+        const durationMs = Math.max(0, Date.now() - started);
+        const active = bumpActive(gameId, -1);
+        await deps.obs.emitAction({
+          event: "match.end",
+          ...traceFields(trace),
           user: user.username,
-        });
-        void deps.obs.metric("arcade_matches_total", 1, { game: gameId, result: status });
-        void deps.obs.span({
-          name: "match.end",
-          traceId,
-          attributes: {
-            "game.id": gameId,
-            "match.id": match.id,
-            result: status,
-          },
+          gameId,
+          matchId: match.id,
+          metrics: [
+            { name: "arcade_matches_total", value: 1, labels: { game: gameId, result: status } },
+            {
+              name: "arcade_match_duration_ms",
+              value: durationMs,
+              labels: { game: gameId, result: status },
+              type: "histogram",
+            },
+            {
+              name: "arcade_active_matches",
+              value: active,
+              labels: { game: gameId },
+              type: "gauge",
+            },
+          ],
+          logFields: { result: status, duration_ms: durationMs },
+          spanAttributes: { result: status, "match.duration_ms": durationMs },
         });
       }
 
       const updated = await deps.matches.update(match);
-      void deps.obs.span({
-        name: "match.move",
-        traceId,
-        attributes: { "game.id": gameId, "match.id": match.id },
-      });
       return toDto(updated);
     },
   };

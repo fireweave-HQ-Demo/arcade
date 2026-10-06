@@ -62,10 +62,22 @@ export type MetricDef = {
   source: string;
 };
 
+export type ActionDef = {
+  event: string;
+  description: string;
+  metrics: Array<{
+    name: string;
+    type: "counter" | "gauge" | "histogram";
+    defaultLabels: Record<string, string>;
+  }>;
+  source: string;
+};
+
 export type MetricsCatalog = {
   configured: boolean;
   maxInject: number;
   metrics: MetricDef[];
+  actions: ActionDef[];
 };
 
 export type MetricInjectResult = {
@@ -75,6 +87,14 @@ export type MetricInjectResult = {
   ok: boolean;
   status: number;
   labels: Record<string, string>;
+};
+
+export type ActionInjectResult = {
+  event: string;
+  requested: number;
+  ingested: number;
+  ok: boolean;
+  status: number;
 };
 
 export class ApiError extends Error {
@@ -158,5 +178,10 @@ export const api = {
     request<MetricInjectResult>("/api/admin/metrics/inject", {
       method: "POST",
       body: JSON.stringify({ name, count, labels }),
+    }),
+  injectAction: (event: string, count: number) =>
+    request<ActionInjectResult>("/api/admin/actions/inject", {
+      method: "POST",
+      body: JSON.stringify({ event, count }),
     }),
 };
