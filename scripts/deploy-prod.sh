@@ -41,8 +41,10 @@ OPENOBSERVE_LOG_STREAM=${OPENOBSERVE_LOG_STREAM:-arcade_logs}
 OPENOBSERVE_TRACE_STREAM=${OPENOBSERVE_TRACE_STREAM:-arcade_traces}
 EOF
 
-# Stop legacy dev stack (port 3000) if still running
+# Stop legacy stacks if present
 sudo docker compose -f docker-compose.yml down --remove-orphans >/dev/null 2>&1 || true
+sudo docker compose -p temp-battle -f docker-compose.yml down --remove-orphans >/dev/null 2>&1 || true
+sudo docker compose -p temp-battle-prod -f docker-compose.prod.yml down --remove-orphans >/dev/null 2>&1 || true
 
 NEED_BUILD=1
 if [[ -n "${PREV_FP}" && "${PREV_FP}" == "${FP}" ]] \
