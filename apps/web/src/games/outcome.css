@@ -1,0 +1,442 @@
+/* Distinct win / lose motion per game. Overlay only — clicks still hit the board. */
+
+.play-fit { position: relative; }
+
+.outcome {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.outcome span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px;
+  opacity: 0;
+}
+
+/* board reactions */
+.play-fit[data-result="win"] .board,
+.play-fit[data-result="lose"] .board {
+  animation-duration: 0.7s;
+  animation-fill-mode: both;
+}
+
+.play-fit[data-game="tictactoe"][data-result="win"] .board { animation-name: board-bounce; }
+.play-fit[data-game="tictactoe"][data-result="lose"] .board { animation-name: board-shake; }
+.play-fit[data-game="connectfour"][data-result="win"] .board { animation-name: board-lift; }
+.play-fit[data-game="connectfour"][data-result="lose"] .board { animation-name: board-drop; }
+.play-fit[data-game="connectthree"][data-result="win"] .board { animation-name: board-pop; }
+.play-fit[data-game="connectthree"][data-result="lose"] .board { animation-name: board-shrink; }
+.play-fit[data-game="gomoku"][data-result="win"] .board { animation-name: board-ripple; }
+.play-fit[data-game="gomoku"][data-result="lose"] .board { animation-name: board-dim; }
+.play-fit[data-game="miserettt"][data-result="win"] .board { animation-name: board-flip; }
+.play-fit[data-game="miserettt"][data-result="lose"] .board { animation-name: board-stamp; }
+.play-fit[data-game="wildttt"][data-result="win"] .board { animation-name: board-spin; }
+.play-fit[data-game="wildttt"][data-result="lose"] .board { animation-name: board-jitter; }
+.play-fit[data-game="sos"][data-result="win"] .board { animation-name: board-wave; }
+.play-fit[data-game="sos"][data-result="lose"] .board { animation-name: board-sink; }
+.play-fit[data-game="popout"][data-result="win"] .board { animation-name: board-rise; }
+.play-fit[data-game="popout"][data-result="lose"] .board { animation-name: board-sink; }
+.play-fit[data-game="powerfour"][data-result="win"] .board { animation-name: board-spin; }
+.play-fit[data-game="powerfour"][data-result="lose"] .board { animation-name: board-crack; }
+.play-fit[data-game="nim"][data-result="win"] .board { animation-name: board-rise; }
+.play-fit[data-game="nim"][data-result="lose"] .board { animation-name: board-topple; }
+.play-fit[data-game="subtractsquare"][data-result="win"] .board { animation-name: board-implode; }
+.play-fit[data-game="subtractsquare"][data-result="lose"] .board { animation-name: board-crack; }
+.play-fit[data-game="reversi"][data-result="win"] .board { animation-name: board-sweep; }
+.play-fit[data-game="reversi"][data-result="lose"] .board { animation-name: board-unsweep; }
+.play-fit[data-game="hexapawn"][data-result="win"] .board { animation-name: board-march; }
+.play-fit[data-game="hexapawn"][data-result="lose"] .board { animation-name: board-drop; }
+.play-fit[data-game="mancala"][data-result="win"] .board { animation-name: board-swirl; }
+.play-fit[data-game="mancala"][data-result="lose"] .board { animation-name: board-spill; }
+.play-fit[data-game="memory"][data-result="win"] .board { animation-name: board-flip; }
+.play-fit[data-game="memory"][data-result="lose"] .board { animation-name: board-jitter; }
+.play-fit[data-game="orderchaos"][data-result="win"] .board { animation-name: board-sweep; }
+.play-fit[data-game="orderchaos"][data-result="lose"] .board { animation-name: board-scribble; }
+.play-fit[data-game="dotsboxes"][data-result="win"] .board { animation-name: board-pop; }
+.play-fit[data-game="dotsboxes"][data-result="lose"] .board { animation-name: board-break; }
+
+@keyframes board-bounce {
+  0% { transform: scale(0.92); }
+  55% { transform: scale(1.04); }
+  100% { transform: none; }
+}
+@keyframes board-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-8px) rotate(-1deg); }
+  40% { transform: translateX(8px) rotate(1deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes board-lift {
+  from { transform: translateY(16px); }
+  to { transform: none; }
+}
+@keyframes board-drop {
+  0% { transform: none; }
+  100% { transform: translateY(18px) rotate(2deg); }
+}
+@keyframes board-pop {
+  0% { transform: scale(0.8); filter: brightness(1.4); }
+  100% { transform: none; filter: none; }
+}
+@keyframes board-shrink {
+  to { transform: scale(0.92); filter: saturate(0.4); }
+}
+@keyframes board-ripple {
+  0% { box-shadow: 0 0 0 0 rgba(125, 255, 162, 0.7); }
+  100% { box-shadow: 0 0 0 28px rgba(125, 255, 162, 0); }
+}
+@keyframes board-dim {
+  to { filter: grayscale(0.85) brightness(0.85); }
+}
+@keyframes board-flip {
+  0% { transform: rotateX(90deg); }
+  100% { transform: none; }
+}
+@keyframes board-stamp {
+  0% { transform: scale(1.15); }
+  40% { transform: scale(0.94); }
+  100% { transform: none; }
+}
+@keyframes board-spin {
+  from { transform: rotate(-8deg) scale(0.94); }
+  to { transform: none; }
+}
+@keyframes board-jitter {
+  0%, 100% { transform: none; }
+  25% { transform: translate(3px, -3px) rotate(1deg); }
+  50% { transform: translate(-4px, 2px) rotate(-2deg); }
+  75% { transform: translate(2px, 3px); }
+}
+@keyframes board-wave {
+  0%, 100% { transform: none; }
+  30% { transform: translateY(-8px) rotate(-1deg); }
+  60% { transform: translateY(4px) rotate(1deg); }
+}
+@keyframes board-sink {
+  to { transform: translateY(22px); opacity: 0.75; }
+}
+@keyframes board-rise {
+  from { transform: translateY(24px) scale(0.96); }
+  to { transform: none; }
+}
+@keyframes board-crack {
+  0%, 100% { transform: none; }
+  30% { transform: skewX(-3deg); filter: hue-rotate(-20deg); }
+  60% { transform: skewX(3deg); }
+}
+@keyframes board-topple {
+  to { transform: rotate(8deg) translateY(10px); }
+}
+@keyframes board-implode {
+  0% { transform: scale(1.08); }
+  70% { transform: scale(0.9); }
+  100% { transform: none; }
+}
+@keyframes board-sweep {
+  0% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+@keyframes board-unsweep {
+  0% { filter: none; }
+  100% { filter: brightness(0.75) saturate(0.5); }
+}
+@keyframes board-march {
+  0% { transform: translateY(20px); }
+  100% { transform: none; }
+}
+@keyframes board-swirl {
+  from { transform: rotate(-12deg) scale(0.9); }
+  to { transform: none; }
+}
+@keyframes board-spill {
+  to { transform: translateX(16px) rotate(4deg); }
+}
+@keyframes board-scribble {
+  0%, 100% { transform: none; }
+  33% { transform: rotate(3deg) translateX(-4px); }
+  66% { transform: rotate(-4deg) translateX(5px); }
+}
+@keyframes board-break {
+  0%, 100% { transform: none; }
+  40% { transform: scale(1.02); }
+  70% { transform: scale(0.97) rotate(-1deg); filter: contrast(0.8); }
+}
+
+/* particle skins — shape, path, and color differ per game */
+.outcome[data-game="tictactoe"][data-result="win"] span {
+  background: var(--mint);
+  border-radius: 2px;
+  animation: fx-burst 0.9s ease forwards;
+}
+.outcome[data-game="tictactoe"][data-result="lose"] span {
+  width: 28px; height: 3px; background: var(--danger); border-radius: 2px;
+  animation: fx-slash 0.7s ease forwards;
+}
+.outcome[data-game="connectfour"][data-result="win"] span {
+  border-radius: 50%; background: var(--mint);
+  left: calc(8% + var(--i) * 6%);
+  top: -8%;
+  animation: fx-rain 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.outcome[data-game="connectfour"][data-result="lose"] span {
+  border-radius: 50%; background: var(--ink);
+  left: calc(8% + var(--i) * 6%);
+  top: 20%;
+  animation: fx-falloff 0.8s ease forwards;
+}
+.outcome[data-game="connectthree"][data-result="win"] span {
+  width: 40%; height: 4px; background: var(--teal); left: 30%; top: calc(20% + var(--i) * 4%);
+  animation: fx-beam 0.7s ease forwards;
+}
+.outcome[data-game="connectthree"][data-result="lose"] span {
+  border: 2px solid var(--danger); background: transparent; border-radius: 50%;
+  animation: fx-implode 0.7s ease forwards;
+}
+.outcome[data-game="gomoku"][data-result="win"] span {
+  border: 2px solid var(--teal); background: transparent; border-radius: 50%;
+  animation: fx-ring 1s ease forwards;
+}
+.outcome[data-game="gomoku"][data-result="lose"] span {
+  background: #8a938e; border-radius: 2px;
+  animation: fx-flicker 0.8s steps(2) forwards;
+}
+.outcome[data-game="miserettt"][data-result="win"] span {
+  background: var(--sand); width: 16px; height: 16px;
+  animation: fx-flipbit 0.8s ease forwards;
+}
+.outcome[data-game="miserettt"][data-result="lose"] span {
+  background: var(--danger); width: 18px; height: 4px;
+  animation: fx-stamp 0.45s ease forwards;
+}
+.outcome[data-game="wildttt"][data-result="win"] span {
+  background: none; color: var(--teal); font-weight: 700; width: auto; height: auto;
+  animation: fx-orbit 1s linear forwards;
+}
+.outcome[data-game="wildttt"][data-result="win"] span::before { content: "✕"; }
+.outcome[data-game="wildttt"][data-result="win"] span:nth-child(odd)::before { content: "○"; color: var(--ink); }
+.outcome[data-game="wildttt"][data-result="lose"] span {
+  background: var(--danger); border-radius: 50%;
+  animation: fx-jitterbit 0.6s ease forwards;
+}
+.outcome[data-game="sos"][data-result="win"] span {
+  background: var(--mint); border-radius: 999px; width: 10px; height: 10px;
+  animation: fx-wave 0.9s ease forwards;
+}
+.outcome[data-game="sos"][data-result="lose"] span {
+  background: var(--ink); width: 8px; height: 18px;
+  animation: fx-falloff 0.7s ease forwards;
+}
+.outcome[data-game="popout"][data-result="win"] span {
+  border-radius: 50%; background: rgba(125, 255, 162, 0.9);
+  bottom: 0; top: auto; left: calc(var(--i) * 7%);
+  animation: fx-bubbles 1.1s ease forwards;
+}
+.outcome[data-game="popout"][data-result="lose"] span {
+  border-radius: 50%; background: var(--ink);
+  left: calc(var(--i) * 7%); top: 30%;
+  animation: fx-falloff 0.8s ease forwards;
+}
+.outcome[data-game="powerfour"][data-result="win"] span {
+  background: var(--sand); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  width: 16px; height: 16px;
+  animation: fx-burst 0.85s ease forwards;
+}
+.outcome[data-game="powerfour"][data-result="lose"] span {
+  background: var(--danger); width: 2px; height: 40px;
+  animation: fx-slash 0.5s ease forwards;
+}
+.outcome[data-game="nim"][data-result="win"] span {
+  width: 6px; height: 28px; background: var(--teal); border-radius: 3px;
+  left: calc(15% + var(--i) * 5%); top: 70%;
+  animation: fx-bars 0.7s ease forwards;
+}
+.outcome[data-game="nim"][data-result="lose"] span {
+  width: 6px; height: 28px; background: var(--ink); border-radius: 3px;
+  left: calc(15% + var(--i) * 5%); top: 40%;
+  animation: fx-topple 0.7s ease forwards;
+}
+.outcome[data-game="subtractsquare"][data-result="win"] span {
+  background: var(--mint); width: 22px; height: 22px;
+  animation: fx-implode 0.8s ease forwards;
+}
+.outcome[data-game="subtractsquare"][data-result="lose"] span {
+  background: transparent; border: 2px solid var(--danger); width: 18px; height: 18px;
+  animation: fx-burst 0.7s ease forwards;
+}
+.outcome[data-game="reversi"][data-result="win"] span {
+  border-radius: 50%; background: var(--mint); width: 18px; height: 18px;
+  left: calc(var(--i) * 7%); top: 40%;
+  animation: fx-flipcoin 0.7s ease forwards;
+}
+.outcome[data-game="reversi"][data-result="lose"] span {
+  border-radius: 50%; background: var(--ink); width: 18px; height: 18px;
+  left: calc(100% - var(--i) * 7%); top: 40%;
+  animation: fx-flipcoin 0.7s ease forwards;
+}
+.outcome[data-game="hexapawn"][data-result="win"] span {
+  width: 0; height: 0; background: none;
+  border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid var(--teal);
+  left: calc(10% + var(--i) * 6%); top: 80%;
+  animation: fx-march 0.8s ease forwards;
+}
+.outcome[data-game="hexapawn"][data-result="lose"] span {
+  width: 0; height: 0; background: none;
+  border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 12px solid var(--danger);
+  left: calc(10% + var(--i) * 6%); top: 15%;
+  animation: fx-falloff 0.8s ease forwards;
+}
+.outcome[data-game="mancala"][data-result="win"] span {
+  border-radius: 50%; background: var(--sand); width: 10px; height: 10px;
+  animation: fx-arc 0.9s ease forwards;
+}
+.outcome[data-game="mancala"][data-result="lose"] span {
+  border-radius: 50%; background: var(--ink); width: 10px; height: 10px;
+  animation: fx-spill 0.8s ease forwards;
+}
+.outcome[data-game="memory"][data-result="win"] span {
+  background: var(--mint); width: 22px; height: 28px; border-radius: 4px;
+  animation: fx-card 0.7s ease forwards;
+}
+.outcome[data-game="memory"][data-result="lose"] span {
+  background: #d7ddd9; width: 22px; height: 28px; border-radius: 4px;
+  animation: fx-cardhide 0.7s ease forwards;
+}
+.outcome[data-game="orderchaos"][data-result="win"] span {
+  height: 3px; width: 80%; left: 10%; top: calc(30% + (var(--i) * 3%));
+  background: var(--teal);
+  animation: fx-draw 0.6s ease forwards;
+}
+.outcome[data-game="orderchaos"][data-result="lose"] span {
+  height: 2px; width: 30px; background: var(--danger);
+  animation: fx-scribble 0.7s ease forwards;
+}
+.outcome[data-game="dotsboxes"][data-result="win"] span {
+  border: 3px solid var(--teal); background: rgba(125, 255, 162, 0.35);
+  width: 28px; height: 28px;
+  animation: fx-fillbox 0.8s ease forwards;
+}
+.outcome[data-game="dotsboxes"][data-result="lose"] span {
+  width: 26px; height: 3px; background: var(--danger);
+  animation: fx-break 0.6s ease forwards;
+}
+
+@keyframes fx-burst {
+  0% { opacity: 1; transform: rotate(calc(var(--i) * 26deg)) translateY(0) scale(1); }
+  100% { opacity: 0; transform: rotate(calc(var(--i) * 26deg)) translateY(-42vmin) scale(0.3); }
+}
+@keyframes fx-slash {
+  0% { opacity: 0; transform: rotate(calc(-40deg + var(--i) * 6deg)) scaleX(0.2); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(calc(-40deg + var(--i) * 6deg)) scaleX(8); }
+}
+@keyframes fx-rain {
+  0% { opacity: 0; transform: translateY(0); }
+  20% { opacity: 1; }
+  100% { opacity: 0.2; transform: translateY(70vmin); }
+}
+@keyframes fx-falloff {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(50vmin); }
+}
+@keyframes fx-beam {
+  0% { opacity: 0; transform: scaleX(0); }
+  40% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; }
+}
+@keyframes fx-implode {
+  0% { opacity: 1; transform: scale(2.2); }
+  100% { opacity: 0; transform: scale(0.1); }
+}
+@keyframes fx-ring {
+  0% { opacity: 0.9; transform: scale(0.2); }
+  100% { opacity: 0; transform: scale(calc(1.2 + var(--i) * 0.35)); }
+}
+@keyframes fx-flicker {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.8; transform: translate(calc(var(--i) * 12px - 80px), calc(var(--i) * 8px - 40px)); }
+}
+@keyframes fx-flipbit {
+  0% { opacity: 1; transform: rotateY(180deg) translate(calc(var(--i) * 10px - 70px), calc(var(--i) * -6px)); }
+  100% { opacity: 0; transform: rotateY(0) translate(calc(var(--i) * 10px - 70px), calc(var(--i) * -6px)); }
+}
+@keyframes fx-stamp {
+  0% { opacity: 0; transform: scale(2) rotate(calc(var(--i) * 12deg)); }
+  50% { opacity: 1; transform: scale(1) rotate(calc(var(--i) * 12deg)); }
+  100% { opacity: 0; }
+}
+@keyframes fx-orbit {
+  0% { opacity: 1; transform: rotate(calc(var(--i) * 25deg)) translateX(20px); }
+  100% { opacity: 0; transform: rotate(calc(var(--i) * 25deg + 180deg)) translateX(90px); }
+}
+@keyframes fx-jitterbit {
+  0% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc((var(--i) - 7) * 8px), calc((var(--i) % 3) * 10px)); }
+}
+@keyframes fx-wave {
+  0% { opacity: 1; transform: translate(calc(var(--i) * 18px - 120px), 0); }
+  50% { transform: translate(calc(var(--i) * 18px - 120px), -28px); }
+  100% { opacity: 0; transform: translate(calc(var(--i) * 18px - 80px), 10px); }
+}
+@keyframes fx-bubbles {
+  0% { opacity: 0.9; transform: translateY(0) scale(0.6); }
+  100% { opacity: 0; transform: translateY(-60vmin) scale(1.3); }
+}
+@keyframes fx-bars {
+  0% { opacity: 1; transform: scaleY(0.2); }
+  70% { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0; }
+}
+@keyframes fx-topple {
+  0% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(70deg) translateY(20px); }
+}
+@keyframes fx-flipcoin {
+  0% { opacity: 1; transform: rotateY(0); }
+  100% { opacity: 0; transform: rotateY(180deg) scale(1.4); }
+}
+@keyframes fx-march {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50vmin); }
+}
+@keyframes fx-arc {
+  0% { opacity: 1; transform: translate(-40px, 30px); }
+  100% { opacity: 0; transform: translate(10px, -50px) scale(0.5); }
+}
+@keyframes fx-spill {
+  0% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(40px + var(--i) * 6px), 40px); }
+}
+@keyframes fx-card {
+  0% { opacity: 1; transform: rotateY(90deg) translate(calc(var(--i) * 14px - 90px), 0); }
+  100% { opacity: 0; transform: rotateY(0) translate(calc(var(--i) * 14px - 90px), -10px); }
+}
+@keyframes fx-cardhide {
+  0% { opacity: 1; transform: rotateY(0); }
+  100% { opacity: 0; transform: rotateY(90deg) translateY(12px); }
+}
+@keyframes fx-draw {
+  0% { opacity: 1; transform: scaleX(0); transform-origin: left; }
+  60% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; }
+}
+@keyframes fx-scribble {
+  0% { opacity: 1; transform: rotate(calc(var(--i) * 20deg)) translateX(0); }
+  100% { opacity: 0; transform: rotate(calc(var(--i) * 40deg)) translateX(30px); }
+}
+@keyframes fx-fillbox {
+  0% { opacity: 0; transform: scale(0.4) translate(calc(var(--i) * 8px - 50px), calc(var(--i) * -4px)); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1); }
+}
+@keyframes fx-break {
+  0% { opacity: 1; transform: rotate(calc(var(--i) * 15deg)); }
+  100% { opacity: 0; transform: rotate(calc(var(--i) * 15deg)) translateX(24px) scaleX(0.2); }
+}

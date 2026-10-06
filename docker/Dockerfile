@@ -6,9 +6,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/game-core/package.json ./packages/game-core/
-COPY packages/engine-tictactoe/package.json ./packages/engine-tictactoe/
-COPY packages/engine-connectfour/package.json ./packages/engine-connectfour/
-COPY packages/engine-suite/package.json ./packages/engine-suite/
+COPY packages/engines/package.json ./packages/engines/
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 

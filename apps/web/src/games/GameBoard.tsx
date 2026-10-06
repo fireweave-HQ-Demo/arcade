@@ -1,5 +1,26 @@
-import { useState } from "react";
-import type { Match } from "./api";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import type { Match } from "../api";
+
+function fit(cols: number, rows: number): CSSProperties {
+  return { "--cols": String(cols), "--rows": String(rows) } as CSSProperties;
+}
+
+/** Indices whose value changed since the previous render — drives place/drop/flip motion. */
+function useFresh(values: string[]) {
+  const key = values.join("\u0001");
+  const prev = useRef<string | null>(null);
+  const fresh = new Set<number>();
+  if (prev.current !== null && prev.current !== key) {
+    const old = prev.current.split("\u0001");
+    values.forEach((v, i) => {
+      if (old[i] !== v) fresh.add(i);
+    });
+  }
+  useEffect(() => {
+    prev.current = key;
+  }, [key]);
+  return fresh;
+}
 
 type Props = {
   match: Match;
@@ -85,12 +106,13 @@ function CellBoard({
   done: boolean;
   onMove: (body: unknown) => void;
 }) {
+  const fresh = useFresh(cells);
   return (
-    <div className="board" style={{ gridTemplateColumns: `repeat(${cols}, minmax(28px, 1fr))` }}>
+    <div className="board" style={fit(cols, Math.ceil(cells.length / cols))}>
       {cells.map((cell, i) => (
         <button
           key={i}
-          className={`cell ${cell === "X" || cell === "S" ? "x" : cell === "O" ? "o" : ""}`}
+          className={`cell ${cell === "X" || cell === "S" ? "x" : cell === "O" ? "o" : ""} ${fresh.has(i) && cell ? "fresh" : ""}`}
           disabled={busy || done || cell !== ""}
           onClick={() => onMove({ index: i })}
         >
@@ -116,9 +138,10 @@ function DropBoard({
   done: boolean;
   onMove: (body: unknown) => void;
 }) {
+  const fresh = useFresh(grid.map(String));
   return (
-    <div>
-      <div className="c4-cols" style={{ gridTemplateColumns: `repeat(${cols}, minmax(28px, 1fr))` }}>
+    <div className="drop-stack" style={fit(cols, rows)}>
+      <div className="c4-cols">
         {Array.from({ length: cols }, (_, c) => (
           <button
             key={c}
@@ -132,15 +155,14 @@ function DropBoard({
         ))}
       </div>
       <div
-        className="board c4"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(28px, 1fr))` }}
+        className="board"
       >
         {Array.from({ length: rows * cols }, (_, i) => {
           const v = grid[i] ?? 0;
           return (
             <div
               key={i}
-              className={`cell ${v === 1 ? "p1" : v === 2 ? "p2" : "empty"}`}
+              className={`cell ${v === 1 ? "p1" : v === 2 ? "p2" : "empty"} ${fresh.has(i) && v ? "fresh gravity" : ""}`}
               aria-label={`cell ${i}`}
             />
           );
@@ -165,6 +187,7 @@ function MarkBoard({
   const marks =
     state.kind === "sos" ? (["S", "O"] as const) : (["X", "O"] as const);
   const [mark, setMark] = useState<(typeof marks)[number]>(marks[0]);
+  const fresh = useFresh(state.cells);
 
   return (
     <div className="stack" style={{ maxWidth: "none" }}>
@@ -187,12 +210,12 @@ function MarkBoard({
       </div>
       <div
         className="board"
-        style={{ gridTemplateColumns: `repeat(${state.cols}, minmax(28px, 1fr))` }}
+        style={fit(state.cols, Math.ceil(state.cells.length / state.cols))}
       >
         {state.cells.map((cell, i) => (
           <button
             key={i}
-            className={`cell ${cell === "X" || cell === "S" ? "x" : cell === "O" ? "o" : ""}`}
+            className={`cell ${cell === "X" || cell === "S" ? "x" : cell === "O" ? "o" : ""} ${fresh.has(i) && cell ? "fresh" : ""}`}
             disabled={busy || done || cell !== ""}
             onClick={() => onMove({ index: i, mark })}
           >
@@ -290,21 +313,62 @@ function ReversiBoard({
   onMove: (body: unknown) => void;
 }) {
   const state = match.state as { cols: number; cells: number[] };
+  const fresh = useFresh(state.cells.map(String));
+  const canMove = reversiHasMove(state.cells, state.cols);
   return (
-    <div
-      className="board"
-      style={{ gridTemplateColumns: `repeat(${state.cols}, minmax(28px, 1fr))` }}
-    >
-      {state.cells.map((c, i) => (
-        <button
-          key={i}
-          className={`cell ${c === 1 ? "p1" : c === 2 ? "p2" : "empty"}`}
-          disabled={busy || done || c !== 0}
-          onClick={() => onMove({ index: i })}
-        />
-      ))}
+    <div className="stack" style={{ maxWidth: "none" }}>
+      {!done && !canMove ? (
+        <button className="btn mint" disabled={busy} onClick={() => onMove({ pass: true })}>
+          pass
+        </button>
+      ) : null}
+      <div
+        className="board"
+        style={fit(state.cols, Math.ceil(state.cells.length / state.cols))}
+      >
+        {state.cells.map((c, i) => (
+          <button
+            key={i}
+            className={`cell ${c === 1 ? "p1" : c === 2 ? "p2" : "empty"} ${fresh.has(i) ? "fresh flip" : ""}`}
+            disabled={busy || done || c !== 0}
+            onClick={() => onMove({ index: i })}
+          />
+        ))}
+      </div>
     </div>
   );
+}
+
+function reversiHasMove(cells: number[], cols: number) {
+  const dirs = [
+    [-1, -1],
+    [-1, 0],
+    [-1, 1],
+    [0, -1],
+    [0, 1],
+    [1, -1],
+    [1, 0],
+    [1, 1],
+  ] as const;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] !== 0) continue;
+    const r0 = Math.floor(i / cols);
+    const c0 = i % cols;
+    for (const [dr, dc] of dirs) {
+      let r = r0 + dr;
+      let c = c0 + dc;
+      let seen = false;
+      while (r >= 0 && r < cols && c >= 0 && c < cols) {
+        const v = cells[r * cols + c];
+        if (v === 2) seen = true;
+        else if (v === 1 && seen) return true;
+        else break;
+        r += dr;
+        c += dc;
+      }
+    }
+  }
+  return false;
 }
 
 function HexapawnBoard({
@@ -325,7 +389,7 @@ function HexapawnBoard({
       <p className="hint">
         {from === null ? "select your pawn (bottom)" : "select destination"}
       </p>
-      <div className="board" style={{ gridTemplateColumns: "repeat(3, minmax(48px, 1fr))" }}>
+      <div className="board" style={fit(3, 3)}>
         {cells.map((c, i) => (
           <button
             key={i}
@@ -416,7 +480,7 @@ function MemoryBoard({
       </p>
       <div
         className="board"
-        style={{ gridTemplateColumns: `repeat(${state.cols}, minmax(48px, 1fr))` }}
+        style={fit(state.cols, Math.ceil(state.cards.length / state.cols))}
       >
         {state.cards.map((card, i) => {
           const show = state.matched[i] || pick === i;

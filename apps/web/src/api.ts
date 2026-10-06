@@ -1,5 +1,5 @@
 export type User = { id: number; username: string; role: "user" | "admin" };
-export type GameInfo = { id: string; name: string; description: string };
+export type GameInfo = { id: string; name: string; description: string; rules: string };
 export type Match = {
   id: number;
   gameId: string;

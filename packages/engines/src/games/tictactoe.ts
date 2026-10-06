@@ -72,7 +72,8 @@ function bestBotMove(board: Cell[]): number {
 export const ticTacToeEngine: GameEngine<TttState, TttMove> = {
   id: "tictactoe",
   name: "Tic-Tac-Toe",
-  description: "Classic 3×3. You are X — the bot plays perfect minimax.",
+  description: "Classic 3×3. You are X against a perfect bot.",
+  rules: "Tap an empty square to place X. The bot answers with O. Line up three in a row, column, or diagonal. A full board with no line is a draw.",
   newState: () => ({ board: Array(9).fill("") as Cell[] }),
   applyHumanMove(state, move): MoveResult<TttState> {
     const { index } = move;

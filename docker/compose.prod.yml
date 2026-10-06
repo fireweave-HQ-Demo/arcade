@@ -20,8 +20,8 @@ services:
 
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
       args:
         PORT: "80"
     image: arcade-app:prod

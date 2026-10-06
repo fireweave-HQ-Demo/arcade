@@ -23,7 +23,7 @@ services:
     working_dir: /app
     command: sh -c "bun install --frozen-lockfile && bun --watch apps/api/src/main.ts"
     volumes:
-      - ./:/app
+      - ..:/app
       - arcade_api_nm:/app/node_modules
     ports:
       - "3000:3000"
@@ -46,7 +46,7 @@ services:
     working_dir: /app
     command: sh -c "bun install --frozen-lockfile && cd apps/web && bunx vite --host 0.0.0.0 --port 5173"
     volumes:
-      - ./:/app
+      - ..:/app
       - arcade_web_nm:/app/node_modules
     ports:
       - "5173:5173"

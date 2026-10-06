@@ -10,9 +10,7 @@
   "dependencies": {
     "@arcade/shared": "workspace:*",
     "@arcade/game-core": "workspace:*",
-    "@arcade/engine-tictactoe": "workspace:*",
-    "@arcade/engine-connectfour": "workspace:*",
-    "@arcade/engine-suite": "workspace:*",
+    "@arcade/engines": "workspace:*",
     "postgres": "^3.4.5"
   }
 }

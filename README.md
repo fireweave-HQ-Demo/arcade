@@ -9,27 +9,31 @@ Repo: [fireweave-HQ-Demo/arcade](https://github.com/fireweave-HQ-Demo/arcade)
 | Env | Start | Stop | URL |
 |-----|-------|------|-----|
 | **dev (hot reload)** | `bun start` | `bun stop` | API http://localhost:3000 · Web http://localhost:5173 |
-| **dev (baked image)** | `bun start:docker` | `docker compose --profile docker down` | http://localhost:3000 (no live sync) |
+| **dev (baked image)** | `bun start:docker` | `bun stop:docker` | http://localhost:3000 (no live sync) |
 | **prod** | `bun start:prod` | `bun stop:prod` | http://localhost:80 |
 
-Local `bun start` runs **Postgres in Docker** and host **Bun `--watch`** (API + `packages/*`) + **Vite HMR** (UI). Edit files under `apps/` or `packages/` and they sync at runtime — no image rebuild. Optional all-in-Docker mounts: `docker compose -f docker-compose.dev.yml up`.
+Local `bun start` runs **Postgres in Docker** and host **Bun `--watch`** (API + `packages/*`) + **Vite HMR** (UI). Edit files under `apps/` or `packages/` and they sync at runtime — no image rebuild. Optional all-in-Docker mounts: `docker compose -f docker/compose.dev.yml up`.
 
-## Monorepo layout
+## Layout
 
 ```
-apps/api          clean-architecture Bun API
-apps/web          React game centre SPA
-packages/game-core
-packages/engine-* tic-tac-toe, connect four, rock-paper-scissors
-packages/shared   DTOs / AppError
+apps/api                      clean-architecture Bun API
+apps/web                      React game centre
+  src/games                   boards + move animations
+packages/game-core            GameEngine port
+packages/engines/src/games    one file per game
+packages/shared               DTOs / AppError
+docker/                       Dockerfile + compose.yml / compose.dev.yml / compose.prod.yml
+scripts/                      dev.sh, dev-stop.sh, prod-start.sh, prod-stop.sh, deploy-prod.sh
+.github/workflows             EC2 deploy on push to main
 ```
 
 ## Games (17)
 
-Board / placement games vs arcade bot (RPS removed):
+Each game has a lobby description, on-board rules, and a bot. Placing, dropping, and flipping animate on the board.
 
 - Tic-Tac-Toe, Misère Tic-Tac-Toe, Wild Tic-Tac-Toe
-- Connect Four, Connect Three, Pop Out, Power Four
+- Connect Four, Connect Three, Drop Three, Power Four
 - Gomoku, Order & Chaos, SOS
 - Reversi, Hexapawn, Mancala, Dots & Boxes
 - Nim, Subtract a Square, Memory
@@ -56,7 +60,7 @@ curl -s http://localhost:3000/api/observability/verify | jq
 
 ## Deploy (EC2)
 
-Merges to `main` → `scripts/deploy-prod.sh` (fingerprint skip-build, port 80).
+Push to `main` runs `.github/workflows/deploy.yml`, which SSHs to EC2 and runs `scripts/deploy-prod.sh` (fingerprint skip-build, port 80).
 
 | Item | Value |
 |------|--------|

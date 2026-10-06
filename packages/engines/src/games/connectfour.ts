@@ -173,7 +173,8 @@ function minimax(
 export const connectFourEngine: GameEngine<C4State, C4Move> = {
   id: "connectfour",
   name: "Connect Four",
-  description: "Drop discs — get four in a row before the bot does.",
+  description: "Drop discs on a 6×7 board. Four in a row wins.",
+  rules: "Tap a column to drop your disc. It falls to the lowest open cell. Connect four horizontally, vertically, or diagonally before the bot does.",
   newState: () => ({ grid: emptyGrid() }),
   applyHumanMove(state, move): MoveResult<C4State> {
     if (checkWin(state.grid, 1) || checkWin(state.grid, 2) || isFull(state.grid)) {

@@ -9,9 +9,7 @@
       "name": "@arcade/api",
       "version": "1.0.0",
       "dependencies": {
-        "@arcade/engine-connectfour": "workspace:*",
-        "@arcade/engine-suite": "workspace:*",
-        "@arcade/engine-tictactoe": "workspace:*",
+        "@arcade/engines": "workspace:*",
         "@arcade/game-core": "workspace:*",
         "@arcade/shared": "workspace:*",
         "postgres": "^3.4.5",
@@ -33,22 +31,8 @@
         "vite": "^6.0.3",
       },
     },
-    "packages/engine-connectfour": {
-      "name": "@arcade/engine-connectfour",
-      "version": "1.0.0",
-      "dependencies": {
-        "@arcade/game-core": "workspace:*",
-      },
-    },
-    "packages/engine-suite": {
-      "name": "@arcade/engine-suite",
-      "version": "1.0.0",
-      "dependencies": {
-        "@arcade/game-core": "workspace:*",
-      },
-    },
-    "packages/engine-tictactoe": {
-      "name": "@arcade/engine-tictactoe",
+    "packages/engines": {
+      "name": "@arcade/engines",
       "version": "1.0.0",
       "dependencies": {
         "@arcade/game-core": "workspace:*",
@@ -69,11 +53,7 @@
   "packages": {
     "@arcade/api": ["@arcade/api@workspace:apps/api"],
 
-    "@arcade/engine-connectfour": ["@arcade/engine-connectfour@workspace:packages/engine-connectfour"],
-
-    "@arcade/engine-suite": ["@arcade/engine-suite@workspace:packages/engine-suite"],
-
-    "@arcade/engine-tictactoe": ["@arcade/engine-tictactoe@workspace:packages/engine-tictactoe"],
+    "@arcade/engines": ["@arcade/engines@workspace:packages/engines"],
 
     "@arcade/game-core": ["@arcade/game-core@workspace:packages/game-core"],
 

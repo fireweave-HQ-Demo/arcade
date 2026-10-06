@@ -7,18 +7,18 @@ APP_DIR="${APP_DIR:-$HOME/arcade}"
 cd "$APP_DIR"
 
 dc() {
-  sudo docker compose -f docker-compose.prod.yml --env-file .env "$@"
+  sudo docker compose -f docker/compose.prod.yml --env-file .env "$@"
 }
 
 # Content fingerprint of build inputs (works with shallow clones)
 fingerprint() {
   git ls-files -s -- \
-    Dockerfile \
+    docker/Dockerfile \
+    docker/compose.prod.yml \
     package.json \
     bun.lock \
     apps \
     packages \
-    docker-compose.prod.yml \
     | sha256sum | awk '{print $1}'
 }
 
@@ -43,9 +43,10 @@ OPENOBSERVE_TRACE_STREAM=${OPENOBSERVE_TRACE_STREAM:-arcade_traces}
 EOF
 
 # Stop legacy stacks if present
-sudo docker compose -f docker-compose.yml down --remove-orphans >/dev/null 2>&1 || true
-sudo docker compose -p temp-battle -f docker-compose.yml down --remove-orphans >/dev/null 2>&1 || true
-sudo docker compose -p temp-battle-prod -f docker-compose.prod.yml down --remove-orphans >/dev/null 2>&1 || true
+sudo docker compose -f docker/compose.yml down --remove-orphans >/dev/null 2>&1 || true
+sudo docker compose -f docker/compose.dev.yml down --remove-orphans >/dev/null 2>&1 || true
+sudo docker compose -p temp-battle -f docker/compose.yml down --remove-orphans >/dev/null 2>&1 || true
+sudo docker compose -p temp-battle-prod -f docker/compose.prod.yml down --remove-orphans >/dev/null 2>&1 || true
 
 NEED_BUILD=1
 if [[ -n "${PREV_FP}" && "${PREV_FP}" == "${FP}" ]] \
