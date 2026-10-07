@@ -7,6 +7,7 @@ import { migrate, waitForDb } from "./infrastructure/db/client";
 import { userRepo } from "./infrastructure/db/user-repo";
 import { sessionRepo } from "./infrastructure/db/session-repo";
 import { matchRepo } from "./infrastructure/db/match-repo";
+import { pinRepo } from "./infrastructure/db/pin-repo";
 import { createEngineCatalog } from "./infrastructure/engines/registry";
 import { observability } from "./infrastructure/observability/adapter";
 import { makePasswordHash } from "./infrastructure/auth/password";
@@ -27,7 +28,7 @@ export async function getServices(): Promise<AppServices> {
       sessions: sessionRepo,
       obs: observability,
     }),
-    games: createGameUseCases({ matches: matchRepo, engines, obs: observability }),
+    games: createGameUseCases({ matches: matchRepo, engines, obs: observability, pins: pinRepo }),
     scoreboard: createScoreboardUseCases({ matches: matchRepo, obs: observability }),
     admin: createAdminUseCases({ matches: matchRepo, engines, obs: observability }),
     history: createHistoryUseCases({ matches: matchRepo, engines, obs: observability }),

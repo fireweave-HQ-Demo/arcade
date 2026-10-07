@@ -171,6 +171,23 @@ export function createHandler(services: AppServices) {
         return respond(json({ games: await services.games.listGames(trace) }));
       }
 
+      if (path === "/api/pins" && req.method === "GET") {
+        const user = await services.auth.me(sessionTokenFromRequest(req));
+        if (!user) return respond(json({ error: "unauthorized", code: "unauthorized" }, { status: 401 }));
+        return respond(json({ gameIds: await services.games.listPins(user) }));
+      }
+
+      const pinPath = path.match(/^\/api\/games\/([^/]+)\/pin$/);
+      if (pinPath && (req.method === "POST" || req.method === "DELETE")) {
+        const user = await services.auth.me(sessionTokenFromRequest(req));
+        if (!user) return respond(json({ error: "unauthorized", code: "unauthorized" }, { status: 401 }));
+        const gameIds =
+          req.method === "POST"
+            ? await services.games.pin(user, pinPath[1]!)
+            : await services.games.unpin(user, pinPath[1]!);
+        return respond(json({ gameIds }));
+      }
+
       const matchGet = path.match(/^\/api\/games\/([^/]+)\/match$/);
       if (matchGet && req.method === "GET") {
         const user = await services.auth.me(sessionTokenFromRequest(req));

@@ -3,6 +3,37 @@ import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 type State = { kind: "hexapawn"; cols: number; cells: number[] };
 type Move = { from: number; to: number };
 
+function apply(cells: number[], move: Move, player: 1 | 2) {
+  const next = [...cells];
+  next[move.to] = player;
+  next[move.from] = 0;
+  return next;
+}
+
+/** Bot (2) maximises. A line of three on 3×3 is short enough to solve. */
+function search(cells: number[], turn: 1 | 2, alpha: number, beta: number): number {
+  if (cells.slice(0, 3).includes(1)) return -1000;
+  if (cells.slice(6).includes(2)) return 1000;
+  const options = legal(cells, turn);
+  if (!options.length) return turn === 2 ? -1000 : 1000;
+  if (turn === 2) {
+    let value = -Infinity;
+    for (const move of options) {
+      value = Math.max(value, search(apply(cells, move, 2), 1, alpha, beta));
+      alpha = Math.max(alpha, value);
+      if (alpha >= beta) break;
+    }
+    return value;
+  }
+  let value = Infinity;
+  for (const move of options) {
+    value = Math.min(value, search(apply(cells, move, 1), 2, alpha, beta));
+    beta = Math.min(beta, value);
+    if (alpha >= beta) break;
+  }
+  return value;
+}
+
 function legal(cells: number[], player: 1 | 2): Move[] {
   const dir = player === 1 ? -1 : 1;
   const out: Move[] = [];
@@ -29,7 +60,7 @@ export const hexapawnEngine: GameEngine<State, Move> = {
   id: "hexapawn",
   name: "Hexapawn",
   description: "3×3 pawn race. Reach the far rank or trap the bot.",
-  rules: "Your pawns start on the bottom row (▲) and move one step forward onto an empty square, or diagonally forward to capture. You win by reaching the top row or leaving the bot with no move.",
+  rules: "Your pawns start on the bottom row (▲) and move one step forward onto an empty square, or diagonally forward to capture. You win by reaching the top row or leaving the bot with no move. The bot plays the solved 3×3 game.",
   newState: () => ({ kind: "hexapawn", cols: 3, cells: [2, 2, 2, 0, 0, 0, 1, 1, 1] }),
   applyHumanMove(state, move): MoveResult<State> {
     const ok = legal(state.cells, 1).some((m) => m.from === move.from && m.to === move.to);
@@ -42,13 +73,17 @@ export const hexapawnEngine: GameEngine<State, Move> = {
   applyBotMove(state) {
     const options = legal(state.cells, 2);
     if (!options.length) return state;
-    const promo = options.find((m) => Math.floor(m.to / 3) === 2);
-    const cap = options.find((m) => state.cells[m.to] === 1);
-    const pick = promo ?? cap ?? options[0]!;
-    const cells = [...state.cells];
-    cells[pick.to] = 2;
-    cells[pick.from] = 0;
-    return { ...state, cells };
+    let best = options[0]!;
+    let bestScore = -Infinity;
+    for (const move of options) {
+      const cells = apply(state.cells, move, 2);
+      const score = search(cells, 1, -Infinity, Infinity);
+      if (score > bestScore) {
+        bestScore = score;
+        best = move;
+      }
+    }
+    return { ...state, cells: apply(state.cells, best, 2) };
   },
   status(state): EngineStatus {
     if (state.cells.slice(0, 3).includes(1)) return "human_win";

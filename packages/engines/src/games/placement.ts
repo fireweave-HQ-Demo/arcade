@@ -1,4 +1,4 @@
-import { nInRow, placeEngine, threatMove, type Cell, type CellState } from "../lib/line";
+import { nInRow, placeEngine, type Cell, type CellState } from "../lib/line";
 import type { GameEngine } from "@arcade/game-core";
 
 export const connectThreeEngine = placeEngine({
@@ -16,25 +16,98 @@ const gomokuBase = placeEngine({
   id: "gomoku",
   name: "Gomoku",
   description: "9×9 five-in-a-row.",
-  rules: "Tap an empty intersection to place X. Five in a row — any direction — wins. The bot blocks open threats and prefers the center.",
+  rules: "Tap an empty intersection to place X. Five in a row — any direction — wins. The bot scores nearby threats and answers the strongest one.",
   size: 81,
   cols: 9,
   depth: 1,
   winner: (b) => nInRow(b, 9, 9, 5),
 });
 
-/** Large board: win/block/center instead of a full search. */
+/** 9×9 is too wide to solve. The bot scores every nearby cell and answers the strongest threat. */
 export const gomokuEngine: GameEngine<CellState, { index: number }> = {
   ...gomokuBase,
   applyBotMove(state) {
     if (nInRow(state.cells, 9, 9, 5)) return state;
-    const move = threatMove(state.cells, 9, 9, 5);
+    const move = bestGomoku(state.cells);
     if (move < 0) return state;
     const cells = [...state.cells] as Cell[];
     cells[move] = "O";
     return { ...state, cells };
   },
 };
+
+function bestGomoku(board: Cell[]) {
+  const cols = 9;
+  const near = new Set<number>();
+  for (let i = 0; i < board.length; i++) {
+    if (!board[i]) continue;
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    for (let dr = -2; dr <= 2; dr++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        const rr = r + dr;
+        const cc = c + dc;
+        if (rr < 0 || rr >= cols || cc < 0 || cc >= cols) continue;
+        const j = rr * cols + cc;
+        if (board[j] === "") near.add(j);
+      }
+    }
+  }
+  if (!near.size) near.add(4 * cols + 4);
+  let best = -1;
+  let bestScore = -Infinity;
+  for (const i of near) {
+    const trial = [...board] as Cell[];
+    trial[i] = "O";
+    if (nInRow(trial, 9, 9, 5) === "O") return i;
+    trial[i] = "X";
+    const block = nInRow(trial, 9, 9, 5) === "X" ? 5000 : 0;
+    trial[i] = "O";
+    const score = block + windowScore(trial, "O") - windowScore(trial, "X");
+    if (score > bestScore) {
+      bestScore = score;
+      best = i;
+    }
+  }
+  return best;
+}
+
+function windowScore(board: Cell[], mark: Cell) {
+  const cols = 9;
+  const n = 5;
+  let score = 0;
+  const dirs = [
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [1, -1],
+  ] as const;
+  for (let r = 0; r < cols; r++) {
+    for (let c = 0; c < cols; c++) {
+      for (const [dr, dc] of dirs) {
+        const cells: Cell[] = [];
+        let ok = true;
+        for (let k = 0; k < n; k++) {
+          const rr = r + dr * k;
+          const cc = c + dc * k;
+          if (rr < 0 || rr >= cols || cc < 0 || cc >= cols) {
+            ok = false;
+            break;
+          }
+          cells.push(board[rr * cols + cc] ?? "");
+        }
+        if (!ok) continue;
+        const mine = cells.filter((x) => x === mark).length;
+        const empty = cells.filter((x) => x === "").length;
+        if (mine + empty !== n) continue;
+        if (mine === 4) score += 80;
+        else if (mine === 3) score += 16;
+        else if (mine === 2) score += 4;
+      }
+    }
+  }
+  return score;
+}
 
 export const misereTttEngine = placeEngine({
   id: "miserettt",

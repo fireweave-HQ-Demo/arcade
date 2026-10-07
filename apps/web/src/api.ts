@@ -56,10 +56,12 @@ export type AdminInsights = {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code: string;
+  constructor(message: string, status: number, code = "") {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -83,11 +85,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
   });
 
-  let data: { error?: string } = {};
+  let data: { error?: string; code?: string } = {};
   const text = await res.text();
   if (text) {
     try {
-      data = JSON.parse(text) as { error?: string };
+      data = JSON.parse(text) as { error?: string; code?: string };
     } catch {
       data = { error: text.slice(0, 120) || "request failed" };
     }
@@ -98,10 +100,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (path !== "/api/auth/login" && path !== "/api/auth/register") {
       onUnauthorized?.();
     }
-    throw new ApiError(data.error ?? "unauthorized", 401);
+    throw new ApiError(data.error ?? "unauthorized", 401, data.code ?? "unauthorized");
   }
   if (!res.ok) {
-    throw new ApiError(data.error ?? "request failed", res.status);
+    throw new ApiError(data.error ?? "request failed", res.status, data.code ?? "request_failed");
   }
   return data as T;
 }
@@ -136,6 +138,11 @@ export const api = {
     }),
   logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
   games: () => request<{ games: GameInfo[] }>("/api/games"),
+  pins: () => request<{ gameIds: string[] }>("/api/pins"),
+  pin: (gameId: string) =>
+    request<{ gameIds: string[] }>(`/api/games/${gameId}/pin`, { method: "POST" }),
+  unpin: (gameId: string) =>
+    request<{ gameIds: string[] }>(`/api/games/${gameId}/pin`, { method: "DELETE" }),
   match: (gameId: string) => request<Match>(`/api/games/${gameId}/match`),
   newMatch: (gameId: string) =>
     request<Match>(`/api/games/${gameId}/match/new`, { method: "POST" }),

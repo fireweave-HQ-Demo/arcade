@@ -10,6 +10,65 @@ type State = {
 };
 type Move = { dir: "h" | "v"; index: number };
 
+function bestMove(
+  state: State,
+  options: Move[],
+  apply: (m: Move) => { h: boolean[]; v: boolean[]; owner: number[]; gained: number },
+): Move {
+  let best = options[0]!;
+  let bestScore = -Infinity;
+  for (const move of options) {
+    const played = apply(move);
+    const next: State = {
+      ...state,
+      h: played.h,
+      v: played.v,
+      owner: played.owner,
+      scores: { ...state.scores, bot: state.scores.bot + played.gained },
+    };
+    const handed = maxGain(next, 1);
+    const score = played.gained * 100 - handed * 40 - openThirds(next);
+    if (score > bestScore) {
+      bestScore = score;
+      best = move;
+    }
+  }
+  return best;
+}
+
+function maxGain(state: State, player: 1 | 2): number {
+  let best = 0;
+  const scan = (dir: "h" | "v", edges: boolean[]) => {
+    edges.forEach((taken, index) => {
+      if (taken) return;
+      const h = [...state.h];
+      const v = [...state.v];
+      if (dir === "h") h[index] = true;
+      else v[index] = true;
+      best = Math.max(best, claim(h, v, state.size, state.owner, player).gained);
+    });
+  };
+  scan("h", state.h);
+  scan("v", state.v);
+  return best;
+}
+
+function openThirds(state: State): number {
+  let n = 0;
+  for (let r = 0; r < state.size; r++) {
+    for (let c = 0; c < state.size; c++) {
+      if (state.owner[r * state.size + c]) continue;
+      const sides =
+        Number(state.h[r * state.size + c]) +
+        Number(state.h[(r + 1) * state.size + c]) +
+        Number(state.v[r * (state.size + 1) + c]) +
+        Number(state.v[r * (state.size + 1) + c + 1]);
+      if (sides === 3) n++;
+    }
+  }
+  return n;
+}
+
 function claim(h: boolean[], v: boolean[], size: number, owner: number[], player: 1 | 2) {
   const next = [...owner];
   let gained = 0;
@@ -34,7 +93,7 @@ export const dotsBoxesEngine: GameEngine<State, Move> = {
   id: "dotsboxes",
   name: "Dots & Boxes",
   description: "Draw edges. Close a box to claim it.",
-  rules: "Tap a missing line between the dots. When your line closes a square, it is yours. Most boxes on the 2×2 grid wins. The bot takes a box when it can.",
+  rules: "Tap a missing line between the dots. When your line closes a square, it is yours. Most boxes on the 2×2 grid wins. The bot takes a box when it can and will not hand you the next one.",
   newState: () => {
     const size = 2;
     return {
@@ -85,8 +144,7 @@ export const dotsBoxesEngine: GameEngine<State, Move> = {
       return { h, v, ...claim(h, v, state.size, state.owner, 2) };
     };
 
-    const scoring = options.find((m) => apply(m).gained > 0);
-    const pick = scoring ?? options[Math.floor(Math.random() * options.length)]!;
+    const pick = bestMove(state, options, apply);
     const played = apply(pick);
     return {
       ...state,

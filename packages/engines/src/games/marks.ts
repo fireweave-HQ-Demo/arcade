@@ -1,7 +1,13 @@
 import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 import { lineWinner, nInRow, statusFrom, tttLines, type Cell } from "../lib/line";
 
-type MarkState = { kind: "wild" | "sos" | "orderchaos"; cols: number; cells: string[]; scores?: { human: number; bot: number } };
+type MarkState = {
+  kind: "wild" | "sos" | "orderchaos";
+  cols: number;
+  cells: string[];
+  scores?: { human: number; bot: number };
+  last?: "human" | "bot";
+};
 type MarkMove = { index: number; mark: string };
 
 function empty(kind: MarkState["kind"], cols: number, n: number, scores = false): MarkState {
@@ -25,33 +31,73 @@ export const wildTttEngine: GameEngine<MarkState, MarkMove> = {
     }
     const cells = [...state.cells];
     cells[move.index] = move.mark;
-    return { state: { ...state, cells } };
+    return { state: { ...state, cells, last: "human" } };
   },
   applyBotMove(state) {
     if (lineWinner(state.cells as Cell[], tttLines()) || state.cells.every((c) => c !== "")) return state;
-    for (const mark of ["O", "X"]) {
-      for (let i = 0; i < 9; i++) {
-        if (state.cells[i] !== "") continue;
+    let bestI = -1;
+    let bestM = "O";
+    let bestScore = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (state.cells[i] !== "") continue;
+      for (const mark of ["X", "O"]) {
         const trial = [...state.cells];
         trial[i] = mark;
-        if (lineWinner(trial as Cell[], tttLines()) === mark) {
-          return { ...state, cells: trial };
+        const score = wildSearch(trial, false, -Infinity, Infinity);
+        if (score > bestScore) {
+          bestScore = score;
+          bestI = i;
+          bestM = mark;
         }
       }
     }
-    const i = state.cells.findIndex((c) => c === "");
-    if (i < 0) return state;
+    if (bestI < 0) return state;
     const cells = [...state.cells];
-    cells[i] = "O";
-    return { ...state, cells };
+    cells[bestI] = bestM;
+    return { ...state, cells, last: "bot" };
   },
   status(state): EngineStatus {
     const w = lineWinner(state.cells as Cell[], tttLines());
-    if (w) return statusFrom(w);
+    if (w) {
+      if (state.last === "human") return "human_win";
+      if (state.last === "bot") return "bot_win";
+      return statusFrom(w);
+    }
     if (state.cells.every((c) => c !== "")) return "draw";
     return "playing";
   },
 };
+
+function wildSearch(cells: string[], botTurn: boolean, alpha: number, beta: number): number {
+  if (lineWinner(cells as Cell[], tttLines())) return botTurn ? -1000 : 1000;
+  const empties: number[] = [];
+  for (let i = 0; i < cells.length; i++) if (cells[i] === "") empties.push(i);
+  if (!empties.length) return 0;
+  if (botTurn) {
+    let value = -Infinity;
+    for (const i of empties) {
+      for (const mark of ["X", "O"]) {
+        cells[i] = mark;
+        value = Math.max(value, wildSearch(cells, false, alpha, beta));
+        cells[i] = "";
+        alpha = Math.max(alpha, value);
+        if (alpha >= beta) return value;
+      }
+    }
+    return value;
+  }
+  let value = Infinity;
+  for (const i of empties) {
+    for (const mark of ["X", "O"]) {
+      cells[i] = mark;
+      value = Math.min(value, wildSearch(cells, true, alpha, beta));
+      cells[i] = "";
+      beta = Math.min(beta, value);
+      if (alpha >= beta) return value;
+    }
+  }
+  return value;
+}
 
 function sosAt(cells: string[], cols: number, index: number): number {
   const rows = cells.length / cols;
@@ -95,28 +141,35 @@ export const sosEngine: GameEngine<MarkState, MarkMove> = {
   },
   applyBotMove(state) {
     if (state.cells.every((c) => c !== "")) return state;
+    const scores = { human: state.scores?.human ?? 0, bot: state.scores?.bot ?? 0 };
     let bestI = state.cells.findIndex((c) => c === "");
     let bestM = "S";
-    let best = -1;
+    let best = -Infinity;
+    const cells = [...state.cells];
     for (let i = 0; i < 16; i++) {
-      if (state.cells[i] !== "") continue;
+      if (cells[i] !== "") continue;
       for (const mark of ["S", "O"]) {
-        const cells = [...state.cells];
         cells[i] = mark;
-        const g = sosAt(cells, 4, i);
-        if (g > best) {
-          best = g;
+        const gained = sosAt(cells, 4, i);
+        const score = sosSearch(
+          cells,
+          { human: scores.human, bot: scores.bot + gained },
+          false,
+          2,
+        );
+        cells[i] = "";
+        if (score > best) {
+          best = score;
           bestI = i;
           bestM = mark;
         }
       }
     }
-    const cells = [...state.cells];
     cells[bestI] = bestM;
     return {
       ...state,
       cells,
-      scores: { human: state.scores?.human ?? 0, bot: (state.scores?.bot ?? 0) + Math.max(0, best) },
+      scores: { human: scores.human, bot: scores.bot + sosAt(cells, 4, bestI) },
     };
   },
   status(state): EngineStatus {
@@ -144,22 +197,25 @@ export const orderChaosEngine: GameEngine<MarkState, MarkMove> = {
   applyBotMove(state) {
     const done = nInRow(state.cells as Cell[], 6, 6, 5);
     if (done === "X" || done === "O" || state.cells.every((c) => c !== "")) return state;
-    for (const mark of ["X", "O"] as const) {
-      for (let i = 0; i < 36; i++) {
-        if (state.cells[i] !== "") continue;
-        const trial = [...state.cells] as Cell[];
-        trial[i] = mark;
-        if (nInRow(trial, 6, 6, 5) === mark) {
-          const cells = [...state.cells];
-          cells[i] = mark === "X" ? "O" : "X";
-          return { ...state, cells };
+    let bestI = -1;
+    let bestM = "X";
+    let best = -Infinity;
+    const cells = [...state.cells];
+    for (let i = 0; i < 36; i++) {
+      if (cells[i] !== "") continue;
+      for (const mark of ["X", "O"]) {
+        cells[i] = mark;
+        const score = chaosSearch(cells, false, 1);
+        cells[i] = "";
+        if (score > best) {
+          best = score;
+          bestI = i;
+          bestM = mark;
         }
       }
     }
-    const i = state.cells.findIndex((c) => c === "");
-    if (i < 0) return state;
-    const cells = [...state.cells];
-    cells[i] = "X";
+    if (bestI < 0) return state;
+    cells[bestI] = bestM;
     return { ...state, cells };
   },
   status(state): EngineStatus {
@@ -169,6 +225,77 @@ export const orderChaosEngine: GameEngine<MarkState, MarkMove> = {
     return "playing";
   },
 };
+
+function sosSearch(
+  cells: string[],
+  scores: { human: number; bot: number },
+  botTurn: boolean,
+  depth: number,
+): number {
+  if (depth <= 0 || cells.every((c) => c !== "")) return scores.bot - scores.human;
+  let value = botTurn ? -Infinity : Infinity;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] !== "") continue;
+    for (const mark of ["S", "O"]) {
+      cells[i] = mark;
+      const gained = sosAt(cells, 4, i);
+      const next = botTurn
+        ? { human: scores.human, bot: scores.bot + gained }
+        : { human: scores.human + gained, bot: scores.bot };
+      const score = sosSearch(cells, next, !botTurn, depth - 1);
+      cells[i] = "";
+      value = botTurn ? Math.max(value, score) : Math.min(value, score);
+    }
+  }
+  return value;
+}
+
+function chaosSearch(cells: string[], botTurn: boolean, depth: number): number {
+  const winner = nInRow(cells as Cell[], 6, 6, 5);
+  if (winner === "X" || winner === "O") return -1000;
+  if (cells.every((c) => c !== "")) return 1000;
+  if (depth <= 0) return -longestRun(cells);
+  let value = botTurn ? -Infinity : Infinity;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] !== "") continue;
+    for (const mark of ["X", "O"]) {
+      cells[i] = mark;
+      const score = chaosSearch(cells, !botTurn, depth - 1);
+      cells[i] = "";
+      value = botTurn ? Math.max(value, score) : Math.min(value, score);
+    }
+  }
+  return value;
+}
+
+function longestRun(cells: string[]) {
+  const cols = 6;
+  let best = 0;
+  const dirs = [
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [1, -1],
+  ] as const;
+  for (let i = 0; i < cells.length; i++) {
+    const mark = cells[i];
+    if (!mark) continue;
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    for (const [dr, dc] of dirs) {
+      let n = 1;
+      let rr = r + dr;
+      let cc = c + dc;
+      while (rr >= 0 && rr < cols && cc >= 0 && cc < cols && cells[rr * cols + cc] === mark) {
+        n++;
+        rr += dr;
+        cc += dc;
+      }
+      if (n > best) best = n;
+    }
+  }
+  return best;
+}
 
 function legalMark(state: MarkState, move: MarkMove, marks: string[]) {
   return (

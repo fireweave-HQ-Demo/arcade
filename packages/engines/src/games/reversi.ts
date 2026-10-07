@@ -64,6 +64,45 @@ function start(): number[] {
   return cells;
 }
 
+const CORNERS = [0, N - 1, N * (N - 1), N * N - 1];
+
+function evaluate(cells: number[]) {
+  let score = 0;
+  for (let i = 0; i < cells.length; i++) {
+    const weight = CORNERS.includes(i) ? 8 : 1;
+    if (cells[i] === 2) score += weight;
+    else if (cells[i] === 1) score -= weight;
+  }
+  score += (moves(cells, 2).length - moves(cells, 1).length) * 2;
+  return score;
+}
+
+function search(cells: number[], player: 1 | 2, depth: number, alpha: number, beta: number): number {
+  const legal = moves(cells, player);
+  const other = (player === 1 ? 2 : 1) as 1 | 2;
+  if (!legal.length) {
+    if (!moves(cells, other).length) {
+      const human = cells.filter((c) => c === 1).length;
+      const bot = cells.filter((c) => c === 2).length;
+      if (bot > human) return 1000;
+      if (human > bot) return -1000;
+      return 0;
+    }
+    return -search(cells, other, depth, -beta, -alpha);
+  }
+  if (depth <= 0) return player === 2 ? evaluate(cells) : -evaluate(cells);
+  let value = -Infinity;
+  for (const index of legal) {
+    const next = apply(cells, index, player);
+    if (!next) continue;
+    const score = -search(next, other, depth - 1, -beta, -alpha);
+    value = Math.max(value, score);
+    alpha = Math.max(alpha, value);
+    if (alpha >= beta) break;
+  }
+  return value;
+}
+
 function outcome(cells: number[]): EngineStatus {
   const human = cells.filter((c) => c === 1).length;
   const bot = cells.filter((c) => c === 2).length;
@@ -92,14 +131,15 @@ export const reversiEngine: GameEngine<State, Move> = {
   applyBotMove(state) {
     const legal = moves(state.cells, 2);
     if (!legal.length) return state;
-    const corners = new Set([0, N - 1, N * (N - 1), N * N - 1]);
     let best = legal[0]!;
-    let bestScore = -1;
-    for (const m of legal) {
-      const n = flips(state.cells, m, 2).length + (corners.has(m) ? 8 : 0);
-      if (n > bestScore) {
-        bestScore = n;
-        best = m;
+    let bestScore = -Infinity;
+    for (const index of legal) {
+      const next = apply(state.cells, index, 2);
+      if (!next) continue;
+      const score = -search(next, 1, 3, -Infinity, Infinity);
+      if (score > bestScore) {
+        bestScore = score;
+        best = index;
       }
     }
     const next = apply(state.cells, best, 2);
