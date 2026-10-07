@@ -32,28 +32,22 @@ export const mancalaEngine: GameEngine<State, Move> = {
     if (!Number.isInteger(pit) || pit < 0 || pit > 5 || state.pits[pit] === 0) {
       return { state, illegal: true };
     }
-    const pits = sow(state.pits, pit, 13);
-    const last = lastIndex(state.pits, pit, 13);
-    if (last <= 5 && pits[last] === 1 && (pits[12 - last] ?? 0) > 0) {
-      pits[6] = (pits[6] ?? 0) + (pits[12 - last] ?? 0) + 1;
-      pits[12 - last] = 0;
-      pits[last] = 0;
-    }
-    return { state: { kind: "mancala", pits } };
+    return { state: { kind: "mancala", pits: play(state.pits, pit, "human") } };
   },
   applyBotMove(state) {
     let best = -1;
-    let bestStore = -1;
+    let bestScore = -Infinity;
     for (let pit = 7; pit <= 12; pit++) {
       if (!state.pits[pit]) continue;
-      const pits = sow(state.pits, pit, 6);
-      if ((pits[13] ?? 0) > bestStore) {
-        bestStore = pits[13] ?? 0;
+      const pits = play(state.pits, pit, "bot");
+      const score = search(pits, "human", 5, -Infinity, Infinity);
+      if (score > bestScore) {
+        bestScore = score;
         best = pit;
       }
     }
     if (best < 0) return state;
-    return { kind: "mancala", pits: sow(state.pits, best, 6) };
+    return { kind: "mancala", pits: play(state.pits, best, "bot") };
   },
   status(state): EngineStatus {
     const humanEmpty = state.pits.slice(0, 6).every((x) => x === 0);
@@ -66,6 +60,58 @@ export const mancalaEngine: GameEngine<State, Move> = {
     return "draw";
   },
 };
+
+function play(pits: number[], pit: number, side: "human" | "bot") {
+  const skip = side === "human" ? 13 : 6;
+  const next = sow(pits, pit, skip);
+  const last = lastIndex(pits, pit, skip);
+  const own = side === "human" ? last <= 5 : last >= 7 && last <= 12;
+  const store = side === "human" ? 6 : 13;
+  if (own && next[last] === 1 && (next[12 - last] ?? 0) > 0) {
+    next[store] = (next[store] ?? 0) + (next[12 - last] ?? 0) + 1;
+    next[12 - last] = 0;
+    next[last] = 0;
+  }
+  return next;
+}
+
+function ended(pits: number[]) {
+  return pits.slice(0, 6).every((x) => x === 0) || pits.slice(7, 13).every((x) => x === 0);
+}
+
+function valueOf(pits: number[]) {
+  const human = pits.slice(0, 7).reduce((a, b) => a + b, 0);
+  const bot = pits.slice(7).reduce((a, b) => a + b, 0);
+  return bot - human;
+}
+
+function search(
+  pits: number[],
+  side: "human" | "bot",
+  depth: number,
+  alpha: number,
+  beta: number,
+): number {
+  if (depth <= 0 || ended(pits)) return valueOf(pits);
+  const pitsRange = side === "human" ? [0, 5] : [7, 12];
+  let value = side === "bot" ? -Infinity : Infinity;
+  let moved = false;
+  for (let pit = pitsRange[0]!; pit <= pitsRange[1]!; pit++) {
+    if (!pits[pit]) continue;
+    moved = true;
+    const next = play(pits, pit, side);
+    const score = search(next, side === "bot" ? "human" : "bot", depth - 1, alpha, beta);
+    if (side === "bot") {
+      value = Math.max(value, score);
+      alpha = Math.max(alpha, value);
+    } else {
+      value = Math.min(value, score);
+      beta = Math.min(beta, value);
+    }
+    if (alpha >= beta) break;
+  }
+  return moved ? value : valueOf(pits);
+}
 
 function lastIndex(pits: number[], start: number, skip: number) {
   let stones = pits[start] ?? 0;

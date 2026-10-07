@@ -237,6 +237,20 @@ export const METRICS_CATALOG: MetricDef[] = [
     source: "ReplayPage",
   },
   {
+    name: "arcade_web_pins_total",
+    type: "counter",
+    description: "Successful pin or unpin from the lobby",
+    defaultLabels: { surface: "web", result: "ok" },
+    source: "LobbyPage pin toggle",
+  },
+  {
+    name: "arcade_web_pin_errors_total",
+    type: "counter",
+    description: "Lobby pin or unpin failed",
+    defaultLabels: { surface: "web", reason: "limit" },
+    source: "LobbyPage pin toggle",
+  },
+  {
     name: "arcade_verify",
     type: "counter",
     description: "Observability probe / verify injections",

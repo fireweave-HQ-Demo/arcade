@@ -5,7 +5,7 @@ export type DropMove = { column: number };
 
 /**
  * Gravity board. Human is 1, bot is 2.
- * Bot takes a win, blocks a win, otherwise prefers the center.
+ * Bot searches a few moves ahead, taking wins and blocking yours.
  */
 export function dropEngine(opts: {
   id: string;
@@ -64,14 +64,85 @@ export function dropEngine(opts: {
 
   function choose(grid: number[]): number {
     const open = openCols(grid);
-    for (const player of [2, 1] as const) {
-      for (const c of open) {
-        const next = drop(grid, c, player);
-        if (next && won(next, player)) return c;
+    let best = open[0] ?? 0;
+    let bestScore = -Infinity;
+    for (const column of open) {
+      const next = drop(grid, column, 2);
+      if (!next) continue;
+      const score = search(next, false, 3, -Infinity, Infinity);
+      if (score > bestScore) {
+        bestScore = score;
+        best = column;
       }
     }
+    return best;
+  }
+
+  function search(grid: number[], botTurn: boolean, depth: number, alpha: number, beta: number): number {
+    if (won(grid, 2)) return 1000 + depth;
+    if (won(grid, 1)) return -1000 - depth;
+    const open = openCols(grid);
+    if (!open.length || depth <= 0) return evaluate(grid);
+    if (botTurn) {
+      let value = -Infinity;
+      for (const column of open) {
+        const next = drop(grid, column, 2);
+        if (!next) continue;
+        value = Math.max(value, search(next, false, depth - 1, alpha, beta));
+        alpha = Math.max(alpha, value);
+        if (alpha >= beta) break;
+      }
+      return value;
+    }
+    let value = Infinity;
+    for (const column of open) {
+      const next = drop(grid, column, 1);
+      if (!next) continue;
+      value = Math.min(value, search(next, true, depth - 1, alpha, beta));
+      beta = Math.min(beta, value);
+      if (alpha >= beta) break;
+    }
+    return value;
+  }
+
+  function evaluate(grid: number[]) {
+    let score = 0;
     const center = (cols - 1) / 2;
-    return [...open].sort((a, b) => Math.abs(a - center) - Math.abs(b - center))[0] ?? 0;
+    for (const column of openCols(grid)) score -= Math.abs(column - center);
+    const dirs = [
+      [0, 1],
+      [1, 0],
+      [1, 1],
+      [1, -1],
+    ] as const;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        for (const [dr, dc] of dirs) {
+          let bot = 0;
+          let human = 0;
+          let empty = 0;
+          let ok = true;
+          for (let k = 0; k < need; k++) {
+            const rr = r + dr * k;
+            const cc = c + dc * k;
+            if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) {
+              ok = false;
+              break;
+            }
+            const cell = grid[idx(rr, cc)];
+            if (cell === 2) bot++;
+            else if (cell === 1) human++;
+            else empty++;
+          }
+          if (!ok || (bot > 0 && human > 0)) continue;
+          if (bot === need - 1 && empty === 1) score += 40;
+          else if (bot > 0 && empty === need - bot) score += bot * 3;
+          if (human === need - 1 && empty === 1) score -= 50;
+          else if (human > 0 && empty === need - human) score -= human * 3;
+        }
+      }
+    }
+    return score;
   }
 
   function over(grid: number[]) {

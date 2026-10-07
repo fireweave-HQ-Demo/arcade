@@ -80,9 +80,17 @@ export const memoryEngine: GameEngine<State, Move> = {
       }
     }
 
-    const a = pair?.[0] ?? hidden[Math.floor(Math.random() * hidden.length)]!;
-    let b = pair?.[1] ?? hidden[Math.floor(Math.random() * hidden.length)]!;
-    while (b === a) b = hidden[Math.floor(Math.random() * hidden.length)]!;
+    const unknown = hidden.filter((i) => state.seen[String(i)] === undefined);
+    const a = pair?.[0] ?? unknown[0] ?? hidden[0]!;
+    const revealed = state.cards[a]!;
+    const mate =
+      pair?.[1] ??
+      hidden.find((i) => i !== a && state.seen[String(i)] === revealed);
+    const b =
+      mate ??
+      unknown.find((i) => i !== a) ??
+      hidden.find((i) => i !== a) ??
+      hidden[0]!;
 
     const matched = [...state.matched];
     const scores = { ...state.scores };
