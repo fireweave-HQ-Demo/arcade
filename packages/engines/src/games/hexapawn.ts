@@ -1,4 +1,4 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 
 type State = { kind: "hexapawn"; cols: number; cells: number[] };
 type Move = { from: number; to: number };
@@ -70,14 +70,21 @@ export const hexapawnEngine: GameEngine<State, Move> = {
     cells[move.from] = 0;
     return { state: { ...state, cells } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     const options = legal(state.cells, 2);
     if (!options.length) return state;
+    if (difficulty === "easy") {
+      return { ...state, cells: apply(state.cells, options[0]!, 2) };
+    }
     let best = options[0]!;
     let bestScore = -Infinity;
     for (const move of options) {
       const cells = apply(state.cells, move, 2);
-      const score = search(cells, 1, -Infinity, Infinity);
+      let score = search(cells, 1, -Infinity, Infinity);
+      if (difficulty === "hard" || difficulty === "nightmare") {
+        if (Math.floor(move.to / 3) === 2) score += difficulty === "nightmare" ? 3 : 2;
+        else if (state.cells[move.to] === 1) score += difficulty === "nightmare" ? 2 : 1;
+      }
       if (score > bestScore) {
         bestScore = score;
         best = move;

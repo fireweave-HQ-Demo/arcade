@@ -2,6 +2,9 @@ import type { MatchResult } from "@arcade/shared";
 
 export type EngineStatus = "playing" | Exclude<MatchResult, null>;
 
+/** Omitted or `mid` keeps the bot that already ships. */
+export type BotDifficulty = "easy" | "mid" | "hard" | "nightmare";
+
 export type MoveResult<TState> = {
   state: TState;
   illegal?: boolean;
@@ -17,7 +20,7 @@ export interface GameEngine<TState = unknown, TMove = unknown> {
   rules: string;
   newState(): TState;
   applyHumanMove(state: TState, move: TMove): MoveResult<TState>;
-  applyBotMove(state: TState): TState;
+  applyBotMove(state: TState, difficulty?: BotDifficulty): TState;
   status(state: TState): EngineStatus;
 }
 

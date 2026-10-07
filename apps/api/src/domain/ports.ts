@@ -30,6 +30,8 @@ export type MatchRecord = {
   state: unknown;
   status: MatchStatus;
   winner: MatchResult;
+  /** Null means the bot that shipped before the difficulty picker. */
+  difficulty: "easy" | "mid" | "hard" | "nightmare" | null;
 };
 
 export type MatchEvent = {
@@ -75,7 +77,12 @@ export interface SessionRepository {
 
 export interface MatchRepository {
   findActive(userId: number, gameId: string): Promise<MatchRecord | null>;
-  create(userId: number, gameId: string, state: unknown): Promise<MatchRecord>;
+  create(
+    userId: number,
+    gameId: string,
+    state: unknown,
+    difficulty?: "easy" | "mid" | "hard" | "nightmare" | null,
+  ): Promise<MatchRecord>;
   update(match: MatchRecord): Promise<MatchRecord>;
   abandonActive(userId: number, gameId: string): Promise<void>;
   addEvent(event: MatchEvent): Promise<void>;

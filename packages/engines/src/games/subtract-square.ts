@@ -1,4 +1,4 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 
 type State = { kind: "number"; n: number; last: "human" | "bot" | null };
 type Move = { take: number };
@@ -17,11 +17,18 @@ export const subtractSquareEngine: GameEngine<State, Move> = {
     if (!SQUARES.includes(move.take) || move.take > state.n) return { state, illegal: true };
     return { state: { kind: "number", n: state.n - move.take, last: "human" } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (state.n <= 0) return state;
     const options = SQUARES.filter((x) => x <= state.n);
-    const cold = options.find((t) => COLD.has(state.n - t));
-    const take = cold ?? options[options.length - 1]!;
+    if (difficulty === "easy") {
+      const take = options[options.length - 1]!;
+      return { kind: "number", n: state.n - take, last: "bot" };
+    }
+    const colds = options.filter((t) => COLD.has(state.n - t));
+    const take =
+      difficulty === "hard" || difficulty === "nightmare"
+        ? (colds[colds.length - 1] ?? options[options.length - 1]!)
+        : (colds[0] ?? options[options.length - 1]!);
     return { kind: "number", n: state.n - take, last: "bot" };
   },
   status(state): EngineStatus {

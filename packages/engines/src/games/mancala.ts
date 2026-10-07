@@ -1,4 +1,5 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import { depthFor } from "../lib/difficulty";
 
 /** pits: 0-5 human, 6 human store, 7-12 bot, 13 bot store */
 type State = { kind: "mancala"; pits: number[] };
@@ -34,13 +35,14 @@ export const mancalaEngine: GameEngine<State, Move> = {
     }
     return { state: { kind: "mancala", pits: play(state.pits, pit, "human") } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     let best = -1;
     let bestScore = -Infinity;
+    const depth = depthFor(5, difficulty, 8);
     for (let pit = 7; pit <= 12; pit++) {
       if (!state.pits[pit]) continue;
       const pits = play(state.pits, pit, "bot");
-      const score = search(pits, "human", 5, -Infinity, Infinity);
+      const score = search(pits, "human", depth, -Infinity, Infinity);
       if (score > bestScore) {
         bestScore = score;
         best = pit;

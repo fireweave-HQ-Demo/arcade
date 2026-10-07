@@ -1,4 +1,5 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import { depthFor } from "../lib/difficulty";
 import { lineWinner, nInRow, statusFrom, tttLines, type Cell } from "../lib/line";
 
 type MarkState = {
@@ -33,8 +34,25 @@ export const wildTttEngine: GameEngine<MarkState, MarkMove> = {
     cells[move.index] = move.mark;
     return { state: { ...state, cells, last: "human" } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (lineWinner(state.cells as Cell[], tttLines()) || state.cells.every((c) => c !== "")) return state;
+    if (difficulty === "easy") {
+      for (const mark of ["X", "O"]) {
+        for (let i = 0; i < 9; i++) {
+          if (state.cells[i] !== "") continue;
+          const trial = [...state.cells];
+          trial[i] = mark;
+          if (lineWinner(trial as Cell[], tttLines())) {
+            return { ...state, cells: trial, last: "bot" };
+          }
+        }
+      }
+      const i = state.cells.findIndex((c) => c === "");
+      if (i < 0) return state;
+      const cells = [...state.cells];
+      cells[i] = "O";
+      return { ...state, cells, last: "bot" };
+    }
     let bestI = -1;
     let bestM = "O";
     let bestScore = -Infinity;
@@ -139,9 +157,10 @@ export const sosEngine: GameEngine<MarkState, MarkMove> = {
       },
     };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (state.cells.every((c) => c !== "")) return state;
     const scores = { human: state.scores?.human ?? 0, bot: state.scores?.bot ?? 0 };
+    const lookahead = depthFor(2, difficulty, 2);
     let bestI = state.cells.findIndex((c) => c === "");
     let bestM = "S";
     let best = -Infinity;
@@ -155,7 +174,7 @@ export const sosEngine: GameEngine<MarkState, MarkMove> = {
           cells,
           { human: scores.human, bot: scores.bot + gained },
           false,
-          2,
+          lookahead,
         );
         cells[i] = "";
         if (score > best) {
@@ -194,18 +213,19 @@ export const orderChaosEngine: GameEngine<MarkState, MarkMove> = {
     cells[move.index] = move.mark;
     return { state: { ...state, cells } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     const done = nInRow(state.cells as Cell[], 6, 6, 5);
     if (done === "X" || done === "O" || state.cells.every((c) => c !== "")) return state;
     let bestI = -1;
     let bestM = "X";
     let best = -Infinity;
     const cells = [...state.cells];
+    const depth = difficulty === "easy" ? 0 : depthFor(1, difficulty, 2);
     for (let i = 0; i < 36; i++) {
       if (cells[i] !== "") continue;
       for (const mark of ["X", "O"]) {
         cells[i] = mark;
-        const score = chaosSearch(cells, false, 1);
+        const score = chaosSearch(cells, false, depth);
         cells[i] = "";
         if (score > best) {
           best = score;

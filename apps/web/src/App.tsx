@@ -10,7 +10,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
-import { api, type GameInfo, type Match, type Scoreboard } from "./api";
+import { api, type BotDifficulty, type GameInfo, type Match, type Scoreboard } from "./api";
 import { AdminPage } from "./Admin";
 import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from "./auth";
 import { fw } from "./fireweave/fw-harness";
@@ -189,13 +189,61 @@ function AuthPage() {
   );
 }
 
+const LEVELS: Array<{ id: BotDifficulty; blurb: string }> = [
+  { id: "easy", blurb: "Misses traps. A good first game." },
+  { id: "mid", blurb: "The usual bot." },
+  { id: "hard", blurb: "Looks further ahead." },
+  { id: "nightmare", blurb: "The strongest reply this game has." },
+];
+
+function gameInProgress(match: Match): boolean {
+  if (match.winner) return false;
+  if (match.difficulty) return true;
+  const state = match.state;
+  if (!state || typeof state !== "object") return false;
+  const board = state as Record<string, unknown>;
+  const dirty = (value: unknown, empty: unknown) =>
+    Array.isArray(value) && value.some((cell) => cell !== empty && cell !== "" && cell !== 0);
+  if (dirty(board.board, "") || dirty(board.grid, 0)) return true;
+  if (board.kind === "heaps" || board.kind === "number") return Boolean(board.last);
+  if (board.kind === "memory") {
+    const scores = board.scores as { human?: number; bot?: number } | undefined;
+    const matched = board.matched as boolean[] | undefined;
+    return Boolean(scores?.human || scores?.bot || matched?.some(Boolean));
+  }
+  if (board.kind === "boxes") {
+    const h = board.h as boolean[] | undefined;
+    const v = board.v as boolean[] | undefined;
+    return Boolean(h?.some(Boolean) || v?.some(Boolean));
+  }
+  if (board.kind === "mancala") {
+    return JSON.stringify(board.pits) !== JSON.stringify([4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]);
+  }
+  if (board.kind === "hexapawn") {
+    return JSON.stringify(board.cells) !== JSON.stringify([2, 2, 2, 0, 0, 0, 1, 1, 1]);
+  }
+  if (board.kind === "reversi") {
+    const cells = board.cells as number[] | undefined;
+    return (cells?.filter((cell) => cell !== 0).length ?? 0) > 4;
+  }
+  if (dirty(board.cells, "") || dirty(board.cells, 0)) return true;
+  return false;
+}
+
 function PlayPage() {
   const { gameId = "" } = useParams();
+  // @fireweave-controlpoint game-difficulty
+  const difficultyOn = fw.controlPoints.getBooleanValue("game-difficulty", false);
   const [game, setGame] = useState<GameInfo | null>(null);
   const [match, setMatch] = useState<Match | null>(null);
+  const [level, setLevel] = useState<BotDifficulty>("mid");
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [booting, setBooting] = useState(true);
+  const viewed = useRef(false);
+  const gameRef = useRef(gameId);
+  gameRef.current = gameId;
 
   useEffect(() => {
     let cancelled = false;
@@ -225,6 +273,21 @@ function PlayPage() {
     };
   }, [gameId]);
 
+  useEffect(() => {
+    setReady(false);
+    setLevel("mid");
+  }, [gameId]);
+
+  useEffect(() => {
+    if (!difficultyOn || viewed.current) return;
+    viewed.current = true;
+    void record("arcade_web_difficulty_views_total", 1, {
+      surface: "web",
+      event: "view",
+      result: "ok",
+    });
+  }, [difficultyOn]);
+
   async function move(body: unknown) {
     if (!game) return;
     setBusy(true);
@@ -238,17 +301,54 @@ function PlayPage() {
     }
   }
 
-  async function fresh() {
-    if (!game) return;
+  async function fresh(next: BotDifficulty = level) {
+    if (!game) return false;
     setBusy(true);
     setError("");
     try {
-      setMatch(await api.newMatch(game.id));
+      setMatch(await api.newMatch(game.id, difficultyOn ? next : undefined));
+      if (difficultyOn) {
+        void record("arcade_web_difficulty_starts_total", 1, {
+          surface: "web",
+          event: "start",
+          result: "ok",
+          level: next,
+        });
+      }
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "failed");
+      if (difficultyOn) {
+        void record("arcade_web_difficulty_errors_total", 1, {
+          surface: "web",
+          event: "start",
+          result: "error",
+          level: next,
+        });
+      }
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  function chooseLevel(next: BotDifficulty) {
+    const id = gameId;
+    setLevel(next);
+    void record("arcade_web_difficulty_selects_total", 1, {
+      surface: "web",
+      event: "select",
+      result: "ok",
+      level: next,
+    });
+    void fresh(next).then((ok) => {
+      if (ok && gameRef.current === id) setReady(true);
+    });
+  }
+
+  function resume() {
+    setLevel(match?.difficulty ?? "mid");
+    setReady(true);
   }
 
   if (booting) {
@@ -266,6 +366,52 @@ function PlayPage() {
         <Link className="btn secondary" to="/" style={{ marginTop: "1rem", display: "inline-block" }}>
           back to lobby
         </Link>
+      </section>
+    );
+  }
+
+  if (difficultyOn && !ready) {
+    const resumeGame = match ? gameInProgress(match) : false;
+    return (
+      <section className="level-gate">
+        <div className="level-hero">
+          <GameMark id={game.id} />
+          <div>
+            <p className="lobby-kicker">Choose a level</p>
+            <h2>{game.name}</h2>
+            <p>{game.description}</p>
+          </div>
+        </div>
+        <div className="level-grid" role="group" aria-label="Bot difficulty">
+          {LEVELS.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`level-card level-${item.id}`}
+              disabled={busy}
+              onClick={() => chooseLevel(item.id)}
+            >
+              <span className="level-pips" aria-hidden="true">
+                {LEVELS.map((pip, pipIndex) => (
+                  <i key={pip.id} className={pipIndex <= index ? "on" : ""} />
+                ))}
+              </span>
+              <strong>{item.id}</strong>
+              <span>{item.blurb}</span>
+            </button>
+          ))}
+        </div>
+        <div className="level-foot">
+          {resumeGame ? (
+            <button type="button" className="btn secondary" disabled={busy} onClick={resume}>
+              Resume game
+            </button>
+          ) : null}
+          <Link className="btn secondary" to="/">
+            Lobby
+          </Link>
+        </div>
+        {error ? <p className="error">{error}</p> : null}
       </section>
     );
   }

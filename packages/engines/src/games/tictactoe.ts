@@ -1,4 +1,4 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 
 export type Cell = "X" | "O" | "";
 export type TttState = { board: Cell[] };
@@ -52,14 +52,18 @@ function minimax(board: Cell[], isMax: boolean): number {
   return best;
 }
 
-function bestBotMove(board: Cell[]): number {
+function bestBotMove(board: Cell[], level?: "hard" | "nightmare"): number {
   let move = -1;
   let bestScore = -Infinity;
   const copy = [...board];
   for (let i = 0; i < 9; i++) {
     if (copy[i] !== "") continue;
     copy[i] = "O";
-    const score = minimax(copy, false);
+    let score = minimax(copy, false);
+    if (level && score > 0) {
+      const speed = copy.filter((c) => c === "").length;
+      score = score * 10 + (level === "nightmare" ? speed : Math.floor(speed / 2));
+    }
     copy[i] = "";
     if (score > bestScore) {
       bestScore = score;
@@ -67,6 +71,18 @@ function bestBotMove(board: Cell[]): number {
     }
   }
   return move;
+}
+
+/** Sees a win on the next mark. Does not look for blocks or forks. */
+function easyMove(board: Cell[]): number {
+  for (let i = 0; i < 9; i++) {
+    if (board[i] !== "") continue;
+    const trial = [...board];
+    trial[i] = "O";
+    if (winner(trial) === "O") return i;
+  }
+  if (board[4] === "") return 4;
+  return board.findIndex((c) => c === "");
 }
 
 export const ticTacToeEngine: GameEngine<TttState, TttMove> = {
@@ -85,9 +101,15 @@ export const ticTacToeEngine: GameEngine<TttState, TttMove> = {
     board[index] = "X";
     return { state: { board } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (winner(state.board)) return state;
-    const move = bestBotMove(state.board);
+    const move =
+      difficulty === "easy"
+        ? easyMove(state.board)
+        : bestBotMove(
+            state.board,
+            difficulty === "hard" || difficulty === "nightmare" ? difficulty : undefined,
+          );
     if (move < 0) return state;
     const board = [...state.board] as Cell[];
     board[move] = "O";

@@ -1,4 +1,5 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import { depthFor } from "./difficulty";
 
 export type DropState = { kind: "drop"; rows: number; cols: number; grid: number[] };
 export type DropMove = { column: number };
@@ -62,14 +63,15 @@ export function dropEngine(opts: {
     return Array.from({ length: cols }, (_, c) => c).filter((c) => grid[idx(0, c)] === 0);
   }
 
-  function choose(grid: number[]): number {
+  function choose(grid: number[], difficulty?: BotDifficulty): number {
     const open = openCols(grid);
     let best = open[0] ?? 0;
     let bestScore = -Infinity;
+    const depth = depthFor(3, difficulty, 5);
     for (const column of open) {
       const next = drop(grid, column, 2);
       if (!next) continue;
-      const score = search(next, false, 3, -Infinity, Infinity);
+      const score = search(next, false, depth, -Infinity, Infinity);
       if (score > bestScore) {
         bestScore = score;
         best = column;
@@ -166,9 +168,9 @@ export function dropEngine(opts: {
       if (!next) return { state, illegal: true };
       return { state: { ...state, grid: next } };
     },
-    applyBotMove(state) {
+    applyBotMove(state, difficulty?: BotDifficulty) {
       if (over(state.grid)) return state;
-      const next = drop(state.grid, choose(state.grid), 2);
+      const next = drop(state.grid, choose(state.grid, difficulty), 2);
       return next ? { ...state, grid: next } : state;
     },
     status(state): EngineStatus {

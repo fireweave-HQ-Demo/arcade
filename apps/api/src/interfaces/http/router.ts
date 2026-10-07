@@ -1,7 +1,7 @@
 import { join } from "path";
 import { AppError } from "@arcade/shared";
 import type { AuthUseCases } from "../../application/auth";
-import type { GameUseCases } from "../../application/games";
+import { parseDifficulty, type GameUseCases } from "../../application/games";
 import type { ScoreboardUseCases } from "../../application/scoreboard";
 import type { AdminUseCases } from "../../application/admin";
 import type { HistoryUseCases } from "../../application/history";
@@ -200,7 +200,12 @@ export function createHandler(services: AppServices) {
       if (matchNew && req.method === "POST") {
         const user = await services.auth.me(sessionTokenFromRequest(req));
         if (!user) return respond(json({ error: "unauthorized" }, { status: 401 }));
-        const match = await services.games.newMatch(user, matchNew[1]!, trace);
+        const body = (await req.json().catch(() => ({}))) as { difficulty?: unknown };
+        const difficulty = parseDifficulty(body?.difficulty);
+        if (body?.difficulty !== undefined && !difficulty) {
+          return respond(json({ error: "unknown difficulty", code: "bad_difficulty" }, { status: 400 }));
+        }
+        const match = await services.games.newMatch(user, matchNew[1]!, trace, difficulty);
         return respond(json(match), { game: match.gameId });
       }
 

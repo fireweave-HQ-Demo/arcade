@@ -1,4 +1,4 @@
-import type { MatchResult, MatchStatus, ScoreRow } from "@arcade/shared";
+import type { BotDifficulty, MatchResult, MatchStatus, ScoreRow } from "@arcade/shared";
 import type {
   FinishedMatchRow,
   MatchRecord,
@@ -21,13 +21,14 @@ function mapMatch(row: Record<string, unknown>): MatchRecord {
     state: row.state,
     status: row.status as MatchStatus,
     winner: (row.winner as MatchResult) ?? null,
+    difficulty: (row.difficulty as BotDifficulty | null) ?? null,
   };
 }
 
 export const matchRepo: MatchRepository = {
   async findActive(userId, gameId) {
     const [row] = await sql`
-      SELECT id, user_id, game_id, state, status, winner
+      SELECT id, user_id, game_id, state, status, winner, difficulty
       FROM matches
       WHERE user_id = ${userId} AND game_id = ${gameId} AND status = 'playing'
       ORDER BY id DESC LIMIT 1
@@ -35,11 +36,11 @@ export const matchRepo: MatchRepository = {
     return row ? mapMatch(row) : null;
   },
 
-  async create(userId, gameId, state) {
+  async create(userId, gameId, state, difficulty = null) {
     const [row] = await sql`
-      INSERT INTO matches (user_id, game_id, state, status)
-      VALUES (${userId}, ${gameId}, ${sql.json(state as never)}, 'playing')
-      RETURNING id, user_id, game_id, state, status, winner
+      INSERT INTO matches (user_id, game_id, state, status, difficulty)
+      VALUES (${userId}, ${gameId}, ${sql.json(state as never)}, 'playing', ${difficulty})
+      RETURNING id, user_id, game_id, state, status, winner, difficulty
     `;
     return mapMatch(row);
   },
@@ -52,7 +53,7 @@ export const matchRepo: MatchRepository = {
           winner = ${match.winner},
           updated_at = NOW()
       WHERE id = ${match.id}
-      RETURNING id, user_id, game_id, state, status, winner
+      RETURNING id, user_id, game_id, state, status, winner, difficulty
     `;
     return mapMatch(row);
   },

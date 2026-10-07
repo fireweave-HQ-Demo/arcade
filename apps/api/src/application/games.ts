@@ -1,4 +1,10 @@
-import { AppError, type MatchDto, type MatchResult, type PublicUser } from "@arcade/shared";
+import {
+  AppError,
+  type BotDifficulty,
+  type MatchDto,
+  type MatchResult,
+  type PublicUser,
+} from "@arcade/shared";
 import type {
   EngineCatalog,
   MatchRepository,
@@ -23,6 +29,7 @@ function toDto(m: {
   state: unknown;
   status: string;
   winner: MatchResult;
+  difficulty?: BotDifficulty | null;
 }): MatchDto {
   return {
     id: m.id,
@@ -30,7 +37,13 @@ function toDto(m: {
     state: m.state,
     status: m.status as MatchDto["status"],
     winner: m.winner,
+    difficulty: m.difficulty ?? null,
   };
+}
+
+export function parseDifficulty(value: unknown): BotDifficulty | undefined {
+  if (value === "easy" || value === "mid" || value === "hard" || value === "nightmare") return value;
+  return undefined;
 }
 
 function traceFields(trace?: TraceCtx) {
@@ -73,7 +86,12 @@ export function createGameUseCases(deps: {
       return games;
     },
 
-    async getOrCreateMatch(user: PublicUser, gameId: string, trace?: TraceCtx) {
+    async getOrCreateMatch(
+      user: PublicUser,
+      gameId: string,
+      trace?: TraceCtx,
+      difficulty?: BotDifficulty,
+    ) {
       const snap = await replaySnapshots(user.id);
       const engine = (() => {
         try {
@@ -85,7 +103,7 @@ export function createGameUseCases(deps: {
 
       let match = await deps.matches.findActive(user.id, gameId);
       if (!match) {
-        match = await deps.matches.create(user.id, gameId, engine.newState());
+        match = await deps.matches.create(user.id, gameId, engine.newState(), difficulty ?? null);
         await deps.matches.addEvent({
           matchId: match.id,
           actor: "system",
@@ -116,7 +134,7 @@ export function createGameUseCases(deps: {
       return toDto(match);
     },
 
-    async newMatch(user: PublicUser, gameId: string, trace?: TraceCtx) {
+    async newMatch(user: PublicUser, gameId: string, trace?: TraceCtx, difficulty?: BotDifficulty) {
       deps.engines.require(gameId);
       const existing = await deps.matches.findActive(user.id, gameId);
       if (existing) {
@@ -125,7 +143,7 @@ export function createGameUseCases(deps: {
         void deps.obs.metric("arcade_active_matches", active, { game: gameId }, "gauge");
       }
       await deps.matches.abandonActive(user.id, gameId);
-      return this.getOrCreateMatch(user, gameId, trace);
+      return this.getOrCreateMatch(user, gameId, trace, difficulty);
     },
 
     async applyMove(
@@ -188,7 +206,7 @@ export function createGameUseCases(deps: {
       let status = engine.status(state);
       if (status === "playing") {
         const botStart = Date.now();
-        state = engine.applyBotMove(state);
+        state = engine.applyBotMove(state, match.difficulty ?? undefined);
         const botMs = Date.now() - botStart;
         await deps.matches.addEvent({
           matchId: match.id,

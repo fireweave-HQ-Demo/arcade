@@ -1,4 +1,5 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import { depthFor } from "../lib/difficulty";
 
 const N = 6;
 type State = { kind: "reversi"; cols: number; cells: number[] };
@@ -128,15 +129,16 @@ export const reversiEngine: GameEngine<State, Move> = {
     if (!next) return { state, illegal: true };
     return { state: { ...state, cells: next } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     const legal = moves(state.cells, 2);
     if (!legal.length) return state;
     let best = legal[0]!;
     let bestScore = -Infinity;
+    const depth = depthFor(3, difficulty, 5);
     for (const index of legal) {
       const next = apply(state.cells, index, 2);
       if (!next) continue;
-      const score = -search(next, 1, 3, -Infinity, Infinity);
+      const score = -search(next, 1, depth, -Infinity, Infinity);
       if (score > bestScore) {
         bestScore = score;
         best = index;

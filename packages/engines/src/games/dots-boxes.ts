@@ -1,4 +1,4 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 
 type State = {
   kind: "boxes";
@@ -14,7 +14,10 @@ function bestMove(
   state: State,
   options: Move[],
   apply: (m: Move) => { h: boolean[]; v: boolean[]; owner: number[]; gained: number },
+  difficulty?: BotDifficulty,
 ): Move {
+  if (difficulty === "easy") return options[0]!;
+  const handedWeight = difficulty === "nightmare" ? 180 : difficulty === "hard" ? 90 : 40;
   let best = options[0]!;
   let bestScore = -Infinity;
   for (const move of options) {
@@ -27,7 +30,7 @@ function bestMove(
       scores: { ...state.scores, bot: state.scores.bot + played.gained },
     };
     const handed = maxGain(next, 1);
-    const score = played.gained * 100 - handed * 40 - openThirds(next);
+    const score = played.gained * 100 - handed * handedWeight - openThirds(next);
     if (score > bestScore) {
       bestScore = score;
       best = move;
@@ -126,7 +129,7 @@ export const dotsBoxesEngine: GameEngine<State, Move> = {
       },
     };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     const options: Move[] = [];
     state.h.forEach((taken, index) => {
       if (!taken) options.push({ dir: "h", index });
@@ -144,7 +147,7 @@ export const dotsBoxesEngine: GameEngine<State, Move> = {
       return { h, v, ...claim(h, v, state.size, state.owner, 2) };
     };
 
-    const pick = bestMove(state, options, apply);
+    const pick = bestMove(state, options, apply, difficulty);
     const played = apply(pick);
     return {
       ...state,
