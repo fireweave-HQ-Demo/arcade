@@ -1,4 +1,4 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 
 type State = {
   kind: "memory";
@@ -59,7 +59,7 @@ export const memoryEngine: GameEngine<State, Move> = {
     }
     return { state: { ...state, matched, scores, seen } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (state.scores.human + state.scores.bot >= 8) return state;
     const hidden = state.matched.map((m, i) => (m ? -1 : i)).filter((i) => i >= 0);
     if (hidden.length < 2) return state;
@@ -81,11 +81,14 @@ export const memoryEngine: GameEngine<State, Move> = {
     }
 
     const unknown = hidden.filter((i) => state.seen[String(i)] === undefined);
-    const a = pair?.[0] ?? unknown[0] ?? hidden[0]!;
+    const remembered = difficulty === "easy" ? null : pair;
+    const a = remembered?.[0] ?? unknown[0] ?? hidden[0]!;
     const revealed = state.cards[a]!;
     const mate =
-      pair?.[1] ??
-      hidden.find((i) => i !== a && state.seen[String(i)] === revealed);
+      remembered?.[1] ??
+      (difficulty === "easy"
+        ? undefined
+        : hidden.find((i) => i !== a && state.seen[String(i)] === revealed));
     const b =
       mate ??
       unknown.find((i) => i !== a) ??

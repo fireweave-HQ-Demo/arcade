@@ -1,11 +1,13 @@
 export type User = { id: number; username: string; role: "user" | "admin" };
 export type GameInfo = { id: string; name: string; description: string; rules: string };
+export type BotDifficulty = "easy" | "mid" | "hard" | "nightmare";
 export type Match = {
   id: number;
   gameId: string;
   state: unknown;
   status: string;
   winner: "human_win" | "bot_win" | "draw" | null;
+  difficulty?: BotDifficulty | null;
 };
 export type Scoreboard = {
   me: {
@@ -144,8 +146,11 @@ export const api = {
   unpin: (gameId: string) =>
     request<{ gameIds: string[] }>(`/api/games/${gameId}/pin`, { method: "DELETE" }),
   match: (gameId: string) => request<Match>(`/api/games/${gameId}/match`),
-  newMatch: (gameId: string) =>
-    request<Match>(`/api/games/${gameId}/match/new`, { method: "POST" }),
+  newMatch: (gameId: string, difficulty?: BotDifficulty) =>
+    request<Match>(`/api/games/${gameId}/match/new`, {
+      method: "POST",
+      body: JSON.stringify(difficulty ? { difficulty } : {}),
+    }),
   move: (gameId: string, body: unknown) =>
     request<Match>(`/api/games/${gameId}/match/move`, {
       method: "POST",

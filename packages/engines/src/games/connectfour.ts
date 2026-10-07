@@ -1,4 +1,5 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import { depthFor } from "../lib/difficulty";
 
 const ROWS = 6;
 const COLS = 7;
@@ -184,9 +185,9 @@ export const connectFourEngine: GameEngine<C4State, C4Move> = {
     if (!next) return { state, illegal: true };
     return { state: { grid: next } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (checkWin(state.grid, 1) || checkWin(state.grid, 2) || isFull(state.grid)) return state;
-    const { column } = minimax(state.grid, 4, -Infinity, Infinity, true);
+    const { column } = minimax(state.grid, depthFor(4, difficulty, 7), -Infinity, Infinity, true);
     const next = drop(state.grid, column, 2);
     return next ? { grid: next } : state;
   },

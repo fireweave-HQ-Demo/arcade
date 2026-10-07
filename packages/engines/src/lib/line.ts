@@ -1,4 +1,5 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import { depthFor } from "./difficulty";
 
 export type Cell = "X" | "O" | "";
 
@@ -141,15 +142,16 @@ export function placeEngine(opts: {
       cells[index] = "X";
       return { state: { ...state, cells } };
     },
-    applyBotMove(state) {
+    applyBotMove(state, difficulty?: BotDifficulty) {
       if (opts.winner(state.cells)) return state;
       let best = -1;
       let bestScore = -Infinity;
       const board = [...state.cells] as Cell[];
+      const depth = depthFor(opts.depth, difficulty, opts.size > 16 ? opts.depth : opts.depth + 2);
       for (let i = 0; i < board.length; i++) {
         if (board[i] !== "") continue;
         board[i] = "O";
-        const value = minimax(board, opts.depth - 1, false, score);
+        const value = minimax(board, depth - 1, false, score);
         board[i] = "";
         if (value > bestScore) {
           bestScore = value;

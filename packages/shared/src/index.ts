@@ -15,12 +15,16 @@ export type GameInfo = {
   description: string;
 };
 
+export type BotDifficulty = "easy" | "mid" | "hard" | "nightmare";
+
 export type MatchDto = {
   id: number;
   gameId: string;
   state: unknown;
   status: MatchStatus;
   winner: MatchResult;
+  /** Absent on matches started before a level was chosen. */
+  difficulty?: BotDifficulty | null;
 };
 
 export type ScoreRow = {

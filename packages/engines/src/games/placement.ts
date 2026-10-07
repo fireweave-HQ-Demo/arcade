@@ -1,5 +1,5 @@
-import { nInRow, placeEngine, type Cell, type CellState } from "../lib/line";
-import type { GameEngine } from "@arcade/game-core";
+import { nInRow, placeEngine, threatMove, type Cell, type CellState } from "../lib/line";
+import type { BotDifficulty, GameEngine } from "@arcade/game-core";
 
 export const connectThreeEngine = placeEngine({
   id: "connectthree",
@@ -26,9 +26,10 @@ const gomokuBase = placeEngine({
 /** 9×9 is too wide to solve. The bot scores every nearby cell and answers the strongest threat. */
 export const gomokuEngine: GameEngine<CellState, { index: number }> = {
   ...gomokuBase,
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (nInRow(state.cells, 9, 9, 5)) return state;
-    const move = bestGomoku(state.cells);
+    const move =
+      difficulty === "easy" ? threatMove(state.cells, 9, 9, 5) : bestGomoku(state.cells, difficulty);
     if (move < 0) return state;
     const cells = [...state.cells] as Cell[];
     cells[move] = "O";
@@ -36,7 +37,8 @@ export const gomokuEngine: GameEngine<CellState, { index: number }> = {
   },
 };
 
-function bestGomoku(board: Cell[]) {
+function bestGomoku(board: Cell[], difficulty?: BotDifficulty) {
+  const blockBonus = difficulty === "nightmare" ? 9000 : difficulty === "hard" ? 7000 : 5000;
   const cols = 9;
   const near = new Set<number>();
   for (let i = 0; i < board.length; i++) {
@@ -61,7 +63,7 @@ function bestGomoku(board: Cell[]) {
     trial[i] = "O";
     if (nInRow(trial, 9, 9, 5) === "O") return i;
     trial[i] = "X";
-    const block = nInRow(trial, 9, 9, 5) === "X" ? 5000 : 0;
+    const block = nInRow(trial, 9, 9, 5) === "X" ? blockBonus : 0;
     trial[i] = "O";
     const score = block + windowScore(trial, "O") - windowScore(trial, "X");
     if (score > bestScore) {

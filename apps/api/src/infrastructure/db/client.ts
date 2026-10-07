@@ -67,6 +67,7 @@ export async function migrate() {
   `;
 
   await sql`ALTER TABLE match_events ADD COLUMN IF NOT EXISTS state JSONB`;
+  await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS difficulty TEXT`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_matches_user_game ON matches(user_id, game_id, status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_matches_game ON matches(game_id)`;

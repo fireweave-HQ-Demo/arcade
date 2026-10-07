@@ -1,4 +1,4 @@
-import type { EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
+import type { BotDifficulty, EngineStatus, GameEngine, MoveResult } from "@arcade/game-core";
 
 type State = { kind: "heaps"; heaps: number[]; last: "human" | "bot" | null };
 type Move = { heap: number; take: number };
@@ -25,13 +25,30 @@ export const nimEngine: GameEngine<State, Move> = {
     heaps[heap]! -= take;
     return { state: { kind: "heaps", heaps, last: "human" } };
   },
-  applyBotMove(state) {
+  applyBotMove(state, difficulty?: BotDifficulty) {
     if (state.heaps.every((h) => h === 0)) return state;
-    const xor = state.heaps.reduce((a, b) => a ^ b, 0);
     const heaps = [...state.heaps];
+    if (difficulty === "easy") {
+      let heap = 0;
+      for (let i = 1; i < heaps.length; i++) if (heaps[i]! > heaps[heap]!) heap = i;
+      heaps[heap]! -= 1;
+      return { kind: "heaps", heaps, last: "bot" };
+    }
+    const xor = heaps.reduce((a, b) => a ^ b, 0);
     if (xor === 0) {
       const heap = heaps.findIndex((h) => h > 0);
       heaps[heap]! -= 1;
+    } else if (difficulty === "nightmare") {
+      let best = -1;
+      let take = 0;
+      for (let i = 0; i < heaps.length; i++) {
+        const target = heaps[i]! ^ xor;
+        if (target < heaps[i]! && heaps[i]! - target > take) {
+          take = heaps[i]! - target;
+          best = i;
+        }
+      }
+      if (best >= 0) heaps[best] = heaps[best]! ^ xor;
     } else {
       for (let i = 0; i < heaps.length; i++) {
         const target = heaps[i]! ^ xor;
